@@ -1,0 +1,181 @@
+{
+  "info": {
+    "name": "Ant Database - Auth API",
+    "description": "Run requests in order. Registration creates one test account in the configured database. Set AUTH_SECRET in the local environment before running the CSRF and login requests.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "01 - Validation: missing email and password",
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Postman Validation Test\"\n}",
+          "options": {"raw": {"language": "json"}}
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/register",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "register"]
+        }
+      },
+      "event": [{
+        "listen": "test",
+        "script": {
+          "type": "text/javascript",
+          "exec": [
+            "pm.test('returns 400 for invalid input', function () { pm.response.to.have.status(400); });",
+            "const body = pm.response.json();",
+            "pm.test('returns validation details', function () {",
+            "  pm.expect(body.error.code).to.eql('VALIDATION_ERROR');",
+            "  pm.expect(body.error.details.fieldErrors).to.have.property('email');",
+            "  pm.expect(body.error.details.fieldErrors).to.have.property('password');",
+            "});"
+          ]
+        }
+      }]
+    },
+    {
+      "name": "02 - Register a new user",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.collectionVariables.set('testEmail', 'postman-' + Date.now() + '@example.com');",
+              "pm.collectionVariables.set('testPassword', 'TestPass123!');"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('creates account with status 201', function () { pm.response.to.have.status(201); });",
+              "const body = pm.response.json();",
+              "pm.test('returns safe user data', function () {",
+              "  pm.expect(body.success).to.eql(true);",
+              "  pm.expect(body.data.user.email).to.eql(pm.collectionVariables.get('testEmail'));",
+              "  pm.expect(body.data.user).to.have.property('id');",
+              "  pm.expect(body.data.user).not.to.have.property('passwordHash');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Postman Test User\",\n  \"email\": \"{{testEmail}}\",\n  \"password\": \"{{testPassword}}\"\n}",
+          "options": {"raw": {"language": "json"}}
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/register",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "register"]
+        }
+      }
+    },
+    {
+      "name": "03 - Duplicate email returns 409",
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Postman Test User\",\n  \"email\": \"{{testEmail}}\",\n  \"password\": \"{{testPassword}}\"\n}",
+          "options": {"raw": {"language": "json"}}
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/register",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "register"]
+        }
+      },
+      "event": [{
+        "listen": "test",
+        "script": {
+          "type": "text/javascript",
+          "exec": [
+            "pm.test('returns 409 for duplicate email', function () { pm.response.to.have.status(409); });",
+            "const body = pm.response.json();",
+            "pm.expect(body.error.code).to.eql('CONFLICT');"
+          ]
+        }
+      }]
+    },
+    {
+      "name": "04 - Get NextAuth CSRF token",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/csrf",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "csrf"]
+        }
+      },
+      "event": [{
+        "listen": "test",
+        "script": {
+          "type": "text/javascript",
+          "exec": [
+            "pm.response.to.have.status(200);",
+            "const body = pm.response.json();",
+            "pm.expect(body.csrfToken).to.be.a('string').and.not.empty;",
+            "pm.collectionVariables.set('csrfToken', body.csrfToken);"
+          ]
+        }
+      }]
+    },
+    {
+      "name": "05 - Login with the registered test user",
+      "request": {
+        "method": "POST",
+        "header": [
+          {"key": "Content-Type", "value": "application/x-www-form-urlencoded"},
+          {"key": "X-Auth-Return-Redirect", "value": "1"}
+        ],
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            {"key": "csrfToken", "value": "{{csrfToken}}", "type": "text"},
+            {"key": "email", "value": "{{testEmail}}", "type": "text"},
+            {"key": "password", "value": "{{testPassword}}", "type": "text"},
+            {"key": "callbackUrl", "value": "{{baseUrl}}/", "type": "text"},
+            {"key": "json", "value": "true", "type": "text"}
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/callback/credentials",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "callback", "credentials"]
+        }
+      },
+      "event": [{
+        "listen": "test",
+        "script": {
+          "type": "text/javascript",
+          "exec": [
+            "pm.test('credentials login succeeds', function () { pm.response.to.have.status(200); });",
+            "const body = pm.response.json();",
+            "pm.expect(body.url).to.include(pm.collectionVariables.get('baseUrl'));",
+            "const setCookie = pm.response.headers.get('set-cookie') || '';",
+            "pm.expect(setCookie).to.match(/authjs\\.session-token/i);"
+          ]
+        }
+      }]
+    }
+  ],
+  "variable": [
+    {"key": "baseUrl", "value": "http://localhost:3000", "type": "string"},
+    {"key": "testEmail", "value": "", "type": "string"},
+    {"key": "testPassword", "value": "", "type": "string"},
+    {"key": "csrfToken", "value": "", "type": "string"}
+  ]
+}

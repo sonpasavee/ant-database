@@ -1,0 +1,164 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum RecordStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+
+  passwordHash  String?
+  role          Role      @default(USER)
+
+  accounts      Account[]
+  sessions      Session[]
+
+  antRecords    AntRecord[]
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model AntSpecies {
+  id             Int      @id @default(autoincrement())
+  commonName     String
+  scientificName String   @unique
+  genus          String?
+  family         String?
+  description    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  records AntRecord[]
+
+  @@index([commonName])
+  @@map("ant_species")
+}
+
+model CollectionMethod {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  records AntRecord[]
+
+  @@map("collection_methods")
+}
+
+model Location {
+  id          Int      @id @default(autoincrement())
+  name        String
+  province    String?
+  description String?
+  latitude    Float?
+  longitude   Float?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  records AntRecord[]
+
+  @@index([name])
+  @@map("locations")
+}
+
+model AntRecord {
+  id                 String   @id @default(cuid())
+
+  speciesId          Int
+  amount             Int
+  locationId         Int
+  collectionMethodId Int
+  collectedById      String
+
+  collectedAt        DateTime
+  description        String?
+
+  status             RecordStatus
+  rejectionReason    String?
+
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  species            AntSpecies       @relation(fields: [speciesId], references: [id])
+  location           Location         @relation(fields: [locationId], references: [id])
+  collectionMethod   CollectionMethod @relation(fields: [collectionMethodId], references: [id])
+  collectedBy        User             @relation(fields: [collectedById], references: [id])
+  images             AntImage[]
+}
+
+model AntImage {
+  id          Int      @id @default(autoincrement())
+  antRecordId String
+  url         String
+  publicId    String   @unique
+  caption     String?
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  antRecord AntRecord @relation(fields: [antRecordId], references: [id], onDelete: Cascade)
+
+  @@index([antRecordId])
+  @@map("ant_images")
+}
