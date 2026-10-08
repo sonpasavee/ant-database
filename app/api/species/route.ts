@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+import type { NextAuthRequest } from "next-auth";
 
 import { auth } from "@/auth";
 import { createSpecies, getSpeciesList } from "@/services/species.service";
@@ -6,9 +6,9 @@ import { createSpeciesSchema } from "@/validators/species.schema";
 import { errorResponse, successResponse } from "@/lib/api-response";
 import { requireAdmin, requireUser } from "@/lib/permissions";
 
-export async function GET(request: NextRequest) {
+export const GET = auth(async (request: NextAuthRequest) => {
   try {
-    await requireUser(auth);
+    await requireUser(() => Promise.resolve(request.auth));
     const { searchParams } = request.nextUrl;
 
     const page = Math.max(Number(searchParams.get("page") ?? "1"), 1);
@@ -29,11 +29,11 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     return errorResponse(error);
   }
-}
+});
 
-export async function POST(request: NextRequest) {
+export const POST = auth(async (request: NextAuthRequest) => {
   try {
-    const user = await requireUser(auth);
+    const user = await requireUser(() => Promise.resolve(request.auth));
     requireAdmin(user);
 
     const body = await request.json();
@@ -48,4 +48,4 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     return errorResponse(error);
   }
-}
+});

@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+import type { NextAuthRequest } from "next-auth";
 
 import { auth } from "@/auth";
 import {
@@ -13,28 +13,22 @@ import {
   updateSpeciesSchema,
 } from "@/validators/species.schema";
 
-type Context = {
-  params: Promise<{
-    id: string;
-  }>;
-};
-
-export async function GET(_request: NextRequest, context: Context) {
+export const GET = auth(async (_request: NextAuthRequest, context) => {
   try {
-    await requireUser(auth);
+    await requireUser(() => Promise.resolve(_request.auth));
     const { id } = await context.params;
-    const speciesId = speciesIdSchema.parse({ id });
+    const speciesId = speciesIdSchema.parse(id);
     const species = await getSpeciesById(speciesId);
 
     return successResponse(species);
   } catch (error) {
     return errorResponse(error);
   }
-}
+});
 
-export async function PATCH(request: NextRequest, context: Context) {
+export const PATCH = auth(async (request: NextAuthRequest, context) => {
   try {
-    const user = await requireUser(auth);
+    const user = await requireUser(() => Promise.resolve(request.auth));
 
     requireAdmin(user);
 
@@ -52,11 +46,11 @@ export async function PATCH(request: NextRequest, context: Context) {
   } catch (error) {
     return errorResponse(error);
   }
-}
+});
 
-export async function DELETE(_request: NextRequest, context: Context) {
+export const DELETE = auth(async (_request: NextAuthRequest, context) => {
   try {
-    const user = await requireUser(auth);
+    const user = await requireUser(() => Promise.resolve(_request.auth));
 
     requireAdmin(user);
 
@@ -72,4 +66,4 @@ export async function DELETE(_request: NextRequest, context: Context) {
   } catch (error) {
     return errorResponse(error);
   }
-}
+});

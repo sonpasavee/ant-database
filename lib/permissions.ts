@@ -1,12 +1,14 @@
 import { ApiError } from "./api-error";
+import type { Role } from "@/app/generated/prisma/enums";
+import type { Session } from "next-auth";
 
 export type CurrentUser = {
   id: string;
-  role: "USER" | "ADMIN";
+  role: Role;
 };
 
 export async function requireUser(
-  auth: () => Promise<any>,
+  auth: () => Promise<Session | null>,
 ): Promise<CurrentUser> {
   const session = await auth();
 

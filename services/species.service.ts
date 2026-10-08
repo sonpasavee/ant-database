@@ -46,6 +46,16 @@ export async function getSpeciesList(options: SpeciesListOptions) {
     }),
     prisma.antSpecies.count({ where }),
   ]);
+
+  return {
+    items,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
 }
 
 export async function getSpeciesById(id: number) {
