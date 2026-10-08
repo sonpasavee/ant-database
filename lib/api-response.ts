@@ -33,6 +33,18 @@ export function errorResponse(error: unknown) {
     );
   }
 
+  if (error instanceof SyntaxError) {
+    return NextResponse.json(
+      {
+        error: "INVALID_JSON",
+        message: "Request body must be valid JSON",
+      },
+      {
+        status: 400,
+      },
+    );
+  }
+
   console.error(error);
 
   return NextResponse.json(
