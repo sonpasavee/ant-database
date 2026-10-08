@@ -6,7 +6,7 @@ const transition: Record<RecordStatus, RecordStatus[]> = {
   DRAFT: ["PENDING"],
   PENDING: ["APPROVED", "REJECTED"],
   APPROVED: [],
-  REJECTED: [],
+  REJECTED: ["PENDING"],
 };
 
 export function canTransition(from: RecordStatus, to: RecordStatus) {

@@ -1,0 +1,6 @@
+.edit-record-layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; align-items: start; gap: 24px; }
+.edit-record-layout > .card { display: grid; gap: 18px; }
+.edit-record-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.edit-record-actions { grid-column: 1 / -1; }
+@media (max-width: 900px) { .edit-record-layout { grid-template-columns: 1fr; } .edit-record-actions { position: static; } }
+@media (max-width: 600px) { .edit-record-row { grid-template-columns: 1fr; } }

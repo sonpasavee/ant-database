@@ -90,9 +90,21 @@ model AntSpecies {
   updatedAt      DateTime @updatedAt
 
   records AntRecord[]
+  aliases AntSpeciesAlias[]
 
   @@index([commonName])
   @@map("ant_species")
+}
+
+model AntSpeciesAlias {
+  id        Int        @id @default(autoincrement())
+  speciesId Int
+  name      String
+  species   AntSpecies @relation(fields: [speciesId], references: [id], onDelete: Cascade)
+
+  @@unique([speciesId, name])
+  @@index([name])
+  @@map("ant_species_aliases")
 }
 
 model CollectionMethod {
@@ -126,10 +138,14 @@ model Location {
 model AntRecord {
   id                 String   @id @default(cuid())
 
-  speciesId          Int
+  speciesId          Int?
   amount             Int
-  locationId         Int
-  collectionMethodId Int
+  locationId         Int?
+  locationText       String?
+  latitude           Float?
+  longitude          Float?
+  collectionMethodId Int?
+  collectionMethodOther String?
   collectedById      String
 
   collectedAt        DateTime
@@ -141,9 +157,9 @@ model AntRecord {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
-  species            AntSpecies       @relation(fields: [speciesId], references: [id])
-  location           Location         @relation(fields: [locationId], references: [id])
-  collectionMethod   CollectionMethod @relation(fields: [collectionMethodId], references: [id])
+  species            AntSpecies?      @relation(fields: [speciesId], references: [id])
+  location           Location?        @relation(fields: [locationId], references: [id])
+  collectionMethod   CollectionMethod? @relation(fields: [collectionMethodId], references: [id])
   collectedBy        User             @relation(fields: [collectedById], references: [id])
   images             AntImage[]
 }

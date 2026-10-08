@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { auth, signOut } from "@/auth";
-import AntIcon from "./ant-icon";
 import NavLinks from "./nav-links";
 
 function initials(name?: string | null) {
@@ -18,13 +17,18 @@ export default async function Navbar() {
     { href: "/", label: "หน้าแรก" },
     { href: "/records", label: "รายการข้อมูลมด" },
     ...(user ? [{ href: "/my-records", label: "ข้อมูลของฉัน" }] : []),
+    ...(user?.role === "ADMIN"
+      ? [
+          { href: "/admin/review", label: "คิวตรวจข้อมูล" },
+          { href: "/admin", label: "จัดการข้อมูล" },
+        ]
+      : []),
   ];
 
   return (
     <header className="navbar">
       <div className="container navbar-inner">
         <Link href="/" className="brand">
-          <AntIcon size={28} />
           Ant Database
         </Link>
 

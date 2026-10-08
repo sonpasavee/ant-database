@@ -1,0 +1,432 @@
+/* ใช้ร่วมกับ token ใน globals.css (--burgundy, --gold, --line ฯลฯ) */
+
+.form-page {
+  padding-top: 24px;
+  padding-bottom: 56px;
+}
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 14px;
+}
+.breadcrumb a {
+  color: var(--muted);
+}
+.breadcrumb [aria-current="page"] {
+  color: var(--ink);
+}
+
+.page-title {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin: 14px 0 24px;
+}
+.page-title h1 {
+  font-size: 30px;
+  font-weight: 600;
+}
+
+/* ---------- status chip (สี + ข้อความเสมอ) ---------- */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 14px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 500;
+}
+.chip i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.chip-draft {
+  background: #ece5da;
+  color: #5b4d4f;
+}
+
+/* ---------- layout ---------- */
+.form-alert {
+  margin-bottom: 20px;
+}
+
+.form-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 24px;
+  align-items: start;
+}
+.form-main,
+.form-side {
+  display: grid;
+  gap: 24px;
+}
+.action-bar {
+  grid-column: 1 / -1;
+  position: sticky;
+  bottom: 16px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 24px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(74, 10, 17, 0.1);
+}
+.action-buttons {
+  display: flex;
+  gap: 12px;
+}
+.cancel-link {
+  color: var(--danger);
+  font-weight: 500;
+  text-decoration: underline;
+}
+
+/* ---------- card ---------- */
+.card {
+  display: grid;
+  gap: 18px;
+  padding: 28px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: #fff;
+}
+.card h2 {
+  font-size: 20px;
+  font-weight: 500;
+}
+.card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.muted-sm {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* ---------- rows ---------- */
+.row {
+  display: grid;
+  gap: 16px;
+}
+.row-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.row-coords {
+  grid-template-columns: 1fr 1fr auto;
+  align-items: start;
+}
+.location-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.location-row .grow {
+  flex: 1;
+  min-width: 0;
+}
+.add-location-btn {
+  margin-top: 29px; /* ให้ตรงกับช่อง select (ข้าม label) */
+  white-space: nowrap;
+}
+.locate-btn {
+  margin-top: 29px;
+  white-space: nowrap;
+}
+
+.req {
+  color: var(--danger);
+}
+
+/* ---------- form controls (เสริมจาก .input ใน globals) ---------- */
+.input.select {
+  appearance: none;
+  padding-right: 40px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='m1 1 5 5 5-5' fill='none' stroke='%236f5a5d' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 16px center;
+  cursor: pointer;
+}
+.input:disabled {
+  background-color: var(--cream);
+  color: var(--muted);
+}
+.textarea {
+  resize: vertical;
+  min-height: 120px;
+  line-height: 1.6;
+}
+.char-count {
+  text-align: right;
+  color: var(--muted);
+  font-size: 13px;
+}
+.text-btn {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--burgundy);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.btn-soft {
+  background: var(--cream-dark);
+  border-color: var(--cream-dark);
+  color: var(--burgundy);
+}
+.btn-soft:hover:not(:disabled) {
+  background: #efe0c7;
+}
+
+/* ---------- map ---------- */
+.map-wrap {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.map-box {
+  height: 320px;
+  background: #e9e1d2;
+  z-index: 0;
+}
+.map-hint {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 500;
+  padding: 4px 14px;
+  border-radius: 999px;
+  background: var(--burgundy-soft);
+  color: var(--cream);
+  font-size: 13px;
+  pointer-events: none;
+}
+.map-location-result {
+  margin: 0;
+  padding: 10px 14px;
+  border-top: 1px solid var(--line);
+  background: #fff;
+  color: var(--muted);
+  font-size: 13px;
+}
+.pin-icon {
+  background: none;
+  border: 0;
+}
+
+/* ---------- image upload ---------- */
+.ant-image-upload {
+  display: grid;
+  gap: 12px;
+}
+.image-upload-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.uploaded-image {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 1;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--cream);
+}
+.uploaded-image img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.uploaded-image-remove {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  border-radius: 50%;
+  background: rgba(43, 22, 24, 0.78);
+  color: #fff;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+.uploaded-image-remove:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.dropzone {
+  display: grid;
+  place-content: center;
+  gap: 6px;
+  min-height: 132px;
+  padding: 16px 12px;
+  border: 1.5px dashed var(--gold-deep);
+  border-radius: 12px;
+  background: var(--cream);
+  color: var(--ink);
+  text-align: center;
+  font: inherit;
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease;
+}
+.dropzone:hover:not(:disabled),
+.dropzone:focus-visible {
+  border-color: var(--burgundy);
+  background: var(--cream-dark);
+}
+.dropzone:disabled {
+  border-color: #d9c9a8;
+  background: var(--cream);
+  color: var(--muted);
+  cursor: not-allowed;
+}
+.dropzone-icon {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  margin: 0 auto 2px;
+  border-radius: 50%;
+  background: var(--burgundy-soft);
+  color: var(--burgundy);
+  font-size: 23px;
+  line-height: 1;
+}
+.dropzone small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.image-upload-hint {
+  margin: 0;
+}
+
+/* ---------- ขั้นตอนของข้อมูล ---------- */
+.flow {
+  display: grid;
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.flow li {
+  display: flex;
+  gap: 12px;
+}
+.flow strong {
+  font-weight: 500;
+}
+.flow p {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.45;
+}
+.flow-no {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border: 1.5px solid var(--line);
+  border-radius: 50%;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 500;
+}
+.flow-active .flow-no {
+  border-color: var(--burgundy);
+  background: var(--burgundy);
+  color: var(--cream);
+}
+
+/* ---------- modal ---------- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(43, 22, 24, 0.55);
+}
+.modal {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  max-width: 440px;
+  padding: 28px;
+  border-radius: 20px;
+  background: #fff;
+}
+.modal h2 {
+  font-size: 22px;
+  font-weight: 600;
+}
+.modal .auth-form {
+  margin-top: 12px;
+}
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+/* ---------- responsive ---------- */
+@media (max-width: 1024px) {
+  .form-layout {
+    grid-template-columns: 1fr;
+  }
+  .form-side {
+    order: 2;
+  }
+  .action-bar {
+    order: 3;
+  }
+}
+
+@media (max-width: 720px) {
+  .card {
+    padding: 20px 16px;
+  }
+  .row-3,
+  .row-coords {
+    grid-template-columns: 1fr;
+  }
+  .location-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .add-location-btn,
+  .locate-btn {
+    margin-top: 0;
+  }
+  .action-bar {
+    flex-direction: column-reverse;
+    align-items: stretch;
+    text-align: center;
+  }
+  .action-buttons {
+    flex-direction: column;
+  }
+  .map-box {
+    height: 260px;
+  }
+}

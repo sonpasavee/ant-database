@@ -7,14 +7,18 @@ type NavItem = { href: string; label: string };
 
 export default function NavLinks({ items }: { items: NavItem[] }) {
   const pathname = usePathname();
+  const activeHref = items
+    .filter((item) =>
+      item.href === "/"
+        ? pathname === "/"
+        : pathname === item.href || pathname.startsWith(`${item.href}/`),
+    )
+    .sort((a, b) => b.href.length - a.href.length)[0]?.href;
 
   return (
     <nav className="nav-links" aria-label="เมนูหลัก">
       {items.map((item) => {
-        const active =
-          item.href === "/"
-            ? pathname === "/"
-            : pathname === item.href || pathname.startsWith(`${item.href}/`);
+        const active = item.href === activeHref;
         return (
           <Link
             key={item.href}

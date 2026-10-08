@@ -9,6 +9,8 @@ type ListOptions = {
   speciesId?: number;
   locationId?: number;
   status?: "DRAFT" | "PENDING" | "APPROVED" | "REJECTED";
+  userId: string;
+  isAdmin: boolean;
 };
 
 const includeRelations = {
@@ -19,7 +21,6 @@ const includeRelations = {
     select: {
       id: true,
       name: true,
-      email: true,
     },
   },
   images: {
@@ -30,48 +31,28 @@ const includeRelations = {
 };
 
 export async function getAntList(options: ListOptions) {
-  const { page, limit, search, speciesId, locationId, status } = options;
+  const { page, limit, search, speciesId, locationId, status, userId, isAdmin } = options;
 
   const where = {
     ...(speciesId ? { speciesId } : {}),
-
     ...(locationId ? { locationId } : {}),
-
-    ...(status ? { status } : {}),
-
+    ...(isAdmin
+      ? status ? { status } : {}
+      : {
+          AND: [
+            { OR: [{ status: "APPROVED" as const }, { collectedById: userId }] },
+            ...(status ? [{ status }] : []),
+          ],
+        }),
     ...(search
       ? {
           OR: [
-            {
-              description: {
-                contains: search,
-                mode: "insensitive" as const,
-              },
-            },
-            {
-              species: {
-                commonName: {
-                  contains: search,
-                  mode: "insensitive" as const,
-                },
-              },
-            },
-            {
-              species: {
-                scientificName: {
-                  contains: search,
-                  mode: "insensitive" as const,
-                },
-              },
-            },
-            {
-              location: {
-                name: {
-                  contains: search,
-                  mode: "insensitive" as const,
-                },
-              },
-            },
+            { description: { contains: search, mode: "insensitive" as const } },
+            { species: { is: { commonName: { contains: search, mode: "insensitive" as const } } } },
+            { species: { is: { scientificName: { contains: search, mode: "insensitive" as const } } } },
+            { species: { is: { aliases: { some: { name: { contains: search, mode: "insensitive" as const } } } } } },
+            { location: { is: { name: { contains: search, mode: "insensitive" as const } } } },
+            { location: { is: { province: { contains: search, mode: "insensitive" as const } } } },
           ],
         }
       : {}),
@@ -118,39 +99,45 @@ export async function getAntById(id: string) {
 }
 
 async function ensureReferencesExist(data: {
-  speciesId: number;
-  locationId: number;
-  collectionMethodId: number;
+  speciesId?: number | null;
+  locationId?: number | null;
+  collectionMethodId?: number | null;
 }) {
   const [species, location, method] = await Promise.all([
-    prisma.antSpecies.findUnique({
+    data.speciesId
+      ? prisma.antSpecies.findUnique({
       where: {
         id: data.speciesId,
       },
-    }),
+      })
+      : Promise.resolve(true),
 
-    prisma.location.findUnique({
+    data.locationId
+      ? prisma.location.findUnique({
       where: {
         id: data.locationId,
       },
-    }),
+      })
+      : Promise.resolve(true),
 
-    prisma.collectionMethod.findUnique({
+    data.collectionMethodId
+      ? prisma.collectionMethod.findUnique({
       where: {
         id: data.collectionMethodId,
       },
-    }),
+      })
+      : Promise.resolve(true),
   ]);
 
-  if (!species) {
+  if (data.speciesId && !species) {
     throw new ApiError(400, "SPECIES_NOT_FOUND", "Species does not exist");
   }
 
-  if (!location) {
+  if (data.locationId && !location) {
     throw new ApiError(400, "LOCATION_NOT_FOUND", "Location does not exist");
   }
 
-  if (!method) {
+  if (data.collectionMethodId && !method) {
     throw new ApiError(
       400,
       "COLLECTION_METHOD_NOT_FOUND",
@@ -160,14 +147,24 @@ async function ensureReferencesExist(data: {
 }
 
 export async function createAnt(data: {
-  speciesId: number;
+  speciesId?: number | null;
   amount: number;
-  locationId: number;
-  collectionMethodId: number;
+  locationId?: number | null;
+  locationText?: string;
+  latitude?: number;
+  longitude?: number;
+  collectionMethodId?: number | null;
+  collectionMethodOther?: string;
   collectedAt: Date;
   description?: string;
   collectedById: string;
-  status: "PENDING" | "APPROVED";
+  status: "DRAFT" | "PENDING" | "APPROVED";
+  images?: {
+    url: string;
+    publicId: string;
+    caption?: string;
+    sortOrder: number;
+  }[];
 }) {
   await ensureReferencesExist(data);
 
@@ -176,11 +173,18 @@ export async function createAnt(data: {
       speciesId: data.speciesId,
       amount: data.amount,
       locationId: data.locationId,
+      locationText: data.locationText,
+      latitude: data.latitude,
+      longitude: data.longitude,
       collectionMethodId: data.collectionMethodId,
+      collectionMethodOther: data.collectionMethodOther,
       collectedAt: data.collectedAt,
       description: data.description,
       collectedById: data.collectedById,
       status: data.status,
+      images: data.images?.length
+        ? { create: data.images }
+        : undefined,
     },
     include: includeRelations,
   });
@@ -189,17 +193,31 @@ export async function createAnt(data: {
 export async function updateAnt(
   id: string,
   data: {
-    speciesId?: number;
+    speciesId?: number | null;
     amount?: number;
-    locationId?: number;
-    collectionMethodId?: number;
+    locationId?: number | null;
+    locationText?: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
+    collectionMethodId?: number | null;
+    collectionMethodOther?: string | null;
     collectedAt?: Date;
     description?: string;
+    images?: {
+      url: string;
+      publicId: string;
+      caption?: string;
+      sortOrder: number;
+    }[];
   },
 ) {
   const existing = await getAntById(id);
 
-  if (data.speciesId || data.locationId || data.collectionMethodId) {
+  if (
+    data.speciesId !== undefined ||
+    data.locationId !== undefined ||
+    data.collectionMethodId !== undefined
+  ) {
     await ensureReferencesExist({
       speciesId: data.speciesId ?? existing.speciesId,
 
@@ -210,29 +228,78 @@ export async function updateAnt(
     });
   }
 
-  return prisma.antRecord.update({
+  const { images, ...recordData } = data;
+
+  const updated = await prisma.antRecord.update({
     where: { id },
-    data,
+    data: {
+      ...recordData,
+      ...(images !== undefined
+        ? { images: { deleteMany: {}, create: images } }
+        : {}),
+    },
     include: includeRelations,
   });
+
+  if (images !== undefined) {
+    const retainedPublicIds = new Set(images.map((image) => image.publicId));
+    const removedPublicIds = existing.images
+      .map((image) => image.publicId)
+      .filter((publicId) => !retainedPublicIds.has(publicId));
+    await deleteOwnedCloudinaryImages(existing.collectedById, removedPublicIds);
+  }
+
+  return updated;
 }
 
 export async function deleteAnt(id: string) {
-  await getAntById(id);
+  const existing = await getAntById(id);
 
   await prisma.antRecord.delete({
     where: { id },
   });
+
+  await deleteOwnedCloudinaryImages(
+    existing.collectedById,
+    existing.images.map((image) => image.publicId),
+  );
+}
+
+async function deleteOwnedCloudinaryImages(userId: string, publicIds: string[]) {
+  const ownedPublicIds = publicIds.filter((publicId) =>
+    publicId.startsWith(`ant-database/${userId}/`),
+  );
+  if (ownedPublicIds.length === 0) return;
+
+  try {
+    const { v2: cloudinary } = await import("cloudinary");
+    cloudinary.config({
+      cloud_name: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
+      api_key: process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET,
+    });
+
+    const results = await Promise.allSettled(
+      ownedPublicIds.map((publicId) => cloudinary.uploader.destroy(publicId, { resource_type: "image" })),
+    );
+    const failures = results.filter((result) => result.status === "rejected");
+    if (failures.length > 0) {
+      console.error(`Cloudinary cleanup failed for ${failures.length} ant image(s)`);
+    }
+  } catch {
+    console.error(`Cloudinary cleanup failed for ${ownedPublicIds.length} ant image(s)`);
+  }
 }
 
 export async function updateAntStatus(
   id: string,
   status: "PENDING" | "APPROVED" | "REJECTED",
   rejectionReason?: string,
+  speciesId?: number,
 ) {
   const existing = await prisma.antRecord.findUnique({
     where: { id },
-    select: { status: true },
+    select: { status: true, speciesId: true },
   });
 
   if (!existing) {
@@ -240,6 +307,15 @@ export async function updateAntStatus(
   }
 
   assertValidTransition(existing.status, status);
+
+  if (speciesId !== undefined) await ensureReferencesExist({ speciesId });
+  if (status === "APPROVED" && (speciesId ?? existing.speciesId) === null) {
+    throw new ApiError(
+      400,
+      "SPECIES_REQUIRED_FOR_APPROVAL",
+      "Identify the ant species before approving this record",
+    );
+  }
 
   if (status === "REJECTED" && !rejectionReason) {
     throw new ApiError(
@@ -256,6 +332,7 @@ export async function updateAntStatus(
     },
     data: {
       status,
+      ...(speciesId !== undefined ? { speciesId } : {}),
       rejectionReason: status === "REJECTED" ? rejectionReason : null,
     },
   });

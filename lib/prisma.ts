@@ -8,11 +8,26 @@ if (!connectionString) {
 
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;
+  prismaClientRevision?: string;
 };
 
+// Prisma Client instances survive Next.js HMR through globalThis. Recreate the
+// instance when the generated schema changes so dev keeps the current model.
+const prismaClientRevision = "2026-10-ant-species-aliases-v1";
 const adapter = new PrismaPg({ connectionString });
-export const prisma = globalForPrisma.prisma ?? new PrismaClient({ adapter });
+const hasCurrentClient =
+  globalForPrisma.prisma &&
+  globalForPrisma.prismaClientRevision === prismaClientRevision;
+
+if (globalForPrisma.prisma && !hasCurrentClient) {
+  void globalForPrisma.prisma.$disconnect();
+}
+
+export const prisma: PrismaClient = hasCurrentClient
+  ? globalForPrisma.prisma!
+  : new PrismaClient({ adapter });
 
 if (process.env.NODE_ENV !== "production") {
   globalForPrisma.prisma = prisma;
+  globalForPrisma.prismaClientRevision = prismaClientRevision;
 }

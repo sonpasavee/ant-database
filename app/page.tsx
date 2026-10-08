@@ -1,6 +1,8 @@
 import Link from "next/link";
+import Image from "next/image";
+import { connection } from "next/server";
 import { auth } from "@/auth";
-import { mockRecentRecords, mockStats } from "@/lib/mock-data";
+import { prisma } from "@/lib/prisma";
 import AntIcon from "./components/ant-icon";
 import Footer from "./components/footer";
 import Navbar from "./components/navbar";
@@ -30,12 +32,50 @@ function initials(name: string) {
 }
 
 export default async function HomePage() {
+  await connection();
   const session = await auth();
   const loggedIn = Boolean(session?.user);
 
   // TODO: เปลี่ยนเป็นข้อมูลจาก API เมื่อพร้อม
-  const stats = mockStats;
-  const records = mockRecentRecords;
+  const [recordCount, speciesCount, locationCount, recentRecords] =
+    await Promise.all([
+      prisma.antRecord.count({ where: { status: "APPROVED" } }),
+      prisma.antSpecies.count(),
+      prisma.location.count(),
+      prisma.antRecord.findMany({
+        where: { status: "APPROVED" },
+        include: {
+          species: true,
+          location: true,
+          collectionMethod: true,
+          collectedBy: { select: { name: true } },
+          images: { orderBy: { sortOrder: "asc" }, take: 1 },
+        },
+        orderBy: { collectedAt: "desc" },
+        take: 6,
+      }),
+    ]);
+
+  const stats = {
+    records: recordCount,
+    species: speciesCount,
+    locations: locationCount,
+  };
+  const records = recentRecords.map((record) => ({
+    id: record.id,
+    count: record.amount,
+    commonName: record.species?.commonName ?? "ยังไม่จำแนกชนิด",
+    scientificName: record.species?.scientificName ?? "",
+    location: [record.location?.name ?? record.locationText, record.location?.province]
+      .filter(Boolean)
+      .join(", "),
+    collectedAt: new Intl.DateTimeFormat("th-TH", {
+      dateStyle: "medium",
+    }).format(record.collectedAt),
+    method: record.collectionMethod?.name ?? record.collectionMethodOther ?? "ไม่ระบุวิธีเก็บ",
+    author: record.collectedBy.name ?? "ไม่ระบุชื่อ",
+    imageUrl: record.images[0]?.url ?? null,
+  }));
 
   return (
     <>
@@ -128,7 +168,17 @@ export default async function HomePage() {
             {records.map((r) => (
               <Link key={r.id} href={`/records/${r.id}`} className="record-card">
                 <div className="record-thumb">
-                  <AntIcon size={52} />
+                  {r.imageUrl ? (
+                    <Image
+                      src={r.imageUrl}
+                      alt={`รูป${r.commonName}`}
+                      fill
+                      sizes="(max-width: 720px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                      unoptimized
+                    />
+                  ) : (
+                    <AntIcon size={52} />
+                  )}
                 </div>
                 <span className="badge-count">{r.count} ตัว</span>
                 <div className="record-body">

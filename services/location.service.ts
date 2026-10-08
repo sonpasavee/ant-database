@@ -25,20 +25,17 @@ export async function getLocationList(
       }
     : {};
 
-  const [items, total] = await prisma.$transaction([
-    prisma.location.findMany({
-      where,
-      orderBy: {
-        name: "asc",
-      },
-      skip: (page - 1) * limit,
-      take: limit,
-    }),
-
-    prisma.location.count({
-      where,
-    }),
-  ]);
+  // These are independent read queries. Avoid opening a transaction through
+  // the hosted database pooler for a list response.
+  const items = await prisma.location.findMany({
+    where,
+    orderBy: {
+      name: "asc",
+    },
+    skip: (page - 1) * limit,
+    take: limit,
+  });
+  const total = await prisma.location.count({ where });
 
   return {
     items,

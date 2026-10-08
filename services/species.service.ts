@@ -31,21 +31,23 @@ export async function getSpeciesList(options: SpeciesListOptions) {
               mode: "insensitive" as const,
             },
           },
+        { aliases: { some: { name: { contains: search, mode: "insensitive" as const } } } },
         ],
       }
     : {};
 
-  const [items, total] = await prisma.$transaction([
-    prisma.antSpecies.findMany({
-      where,
-      orderBy: {
-        commonName: "asc",
-      },
-      skip: (page - 1) * limit,
-      take: limit,
-    }),
-    prisma.antSpecies.count({ where }),
-  ]);
+  // These are independent read queries. Avoid opening a transaction through
+  // the hosted database pooler for a list response.
+  const items = await prisma.antSpecies.findMany({
+    where,
+    orderBy: {
+      commonName: "asc",
+    },
+    skip: (page - 1) * limit,
+    take: limit,
+    include: { aliases: true },
+  });
+  const total = await prisma.antSpecies.count({ where });
 
   return {
     items,
@@ -59,8 +61,9 @@ export async function getSpeciesList(options: SpeciesListOptions) {
 }
 
 export async function getSpeciesById(id: number) {
-  const species = await prisma.antSpecies.findUnique({
+    const species = await prisma.antSpecies.findUnique({
     where: { id },
+    include: { aliases: true },
   });
   if (!species) {
     throw new ApiError(404, "SPECIES_NOT_FOUND", "Species not found");
@@ -74,6 +77,7 @@ export async function createSpecies(data: {
   genus?: string;
   family?: string;
   description?: string;
+  aliases?: string[];
 }) {
   const existing = await prisma.antSpecies.findUnique({
     where: {
@@ -89,8 +93,13 @@ export async function createSpecies(data: {
     );
   }
 
+  const { aliases = [], ...speciesData } = data;
   return prisma.antSpecies.create({
-    data,
+    data: {
+      ...speciesData,
+      aliases: aliases.length ? { create: aliases.map((name) => ({ name })) } : undefined,
+    },
+    include: { aliases: true },
   });
 }
 
@@ -102,6 +111,7 @@ export async function updateSpecies(
     genus?: string;
     family?: string;
     description?: string;
+    aliases?: string[];
   },
 ) {
   await getSpeciesById(id);
@@ -123,9 +133,16 @@ export async function updateSpecies(
     }
   }
 
+  const { aliases, ...speciesData } = data;
   return prisma.antSpecies.update({
     where: { id },
-    data,
+    data: {
+      ...speciesData,
+      ...(aliases !== undefined
+        ? { aliases: { deleteMany: {}, create: aliases.map((name) => ({ name })) } }
+        : {}),
+    },
+    include: { aliases: true },
   });
 }
 

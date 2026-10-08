@@ -15,20 +15,17 @@ export async function getCollectionMethodList(
       }
     : {};
 
-  const [items, total] = await prisma.$transaction([
-    prisma.collectionMethod.findMany({
-      where,
-      orderBy: {
-        name: "asc",
-      },
-      skip: (page - 1) * limit,
-      take: limit,
-    }),
-
-    prisma.collectionMethod.count({
-      where,
-    }),
-  ]);
+  // These are independent read queries. Avoid opening a transaction through
+  // the hosted database pooler for a list response.
+  const items = await prisma.collectionMethod.findMany({
+    where,
+    orderBy: {
+      name: "asc",
+    },
+    skip: (page - 1) * limit,
+    take: limit,
+  });
+  const total = await prisma.collectionMethod.count({ where });
 
   return {
     items,

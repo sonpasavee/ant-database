@@ -7,6 +7,8 @@ export const createSpeciesSchema = z.object({
     .min(1, "Common name is required")
     .max(150),
 
+  aliases: z.array(z.string().trim().min(1).max(150)).max(20).optional().default([]),
+
   scientificName: z
     .string()
     .trim()

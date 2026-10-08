@@ -1,0 +1,482 @@
+/* ใช้ token จาก globals.css: --burgundy, --gold, --gold-deep, --cream-dark, --line, --muted, --ink */
+
+.rd-page {
+  padding-top: 24px;
+  padding-bottom: 64px;
+}
+
+/* ---------- แถบมุมมองเจ้าของข้อมูล ---------- */
+.rd-owner {
+  background: var(--cream-dark);
+  border-bottom: 1px solid var(--line);
+}
+.rd-owner-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+.rd-owner-info {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  font-size: 14px;
+  color: var(--muted);
+}
+.rd-owner-note {
+  font-size: 14px;
+}
+.rd-owner-actions {
+  display: flex;
+  gap: 10px;
+}
+.rd-owner-actions .btn {
+  padding: 6px 20px;
+}
+.rd-btn-ghost {
+  padding: 6px 18px;
+  border: 2px dashed #cdbb99;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: not-allowed;
+}
+
+.rd-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 14px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 500;
+}
+.rd-chip i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.rd-chip-ok {
+  background: var(--ok-bg);
+  color: var(--ok);
+}
+
+/* ---------- breadcrumb + heading ---------- */
+.rd-crumbs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 14px;
+}
+.rd-crumbs a {
+  color: var(--muted);
+}
+.rd-crumbs [aria-current="page"] {
+  color: var(--ink);
+}
+
+.rd-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 20px 0 24px;
+}
+.rd-heading h1 {
+  font-size: 40px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+.rd-sci-lg {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 18px;
+  font-style: italic;
+}
+.rd-count {
+  flex-shrink: 0;
+  padding: 6px 22px;
+  border-radius: 999px;
+  background: var(--gold);
+  color: var(--burgundy);
+  font-size: 20px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* ---------- layout ---------- */
+.rd-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 24px;
+  align-items: start;
+}
+.rd-main,
+.rd-side {
+  display: grid;
+  gap: 24px;
+  min-width: 0;
+}
+.rd-side {
+  position: sticky;
+  top: 16px;
+}
+
+.rd-card {
+  display: grid;
+  gap: 16px;
+  padding: 28px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: #fff;
+}
+.rd-card-flush {
+  padding: 16px;
+}
+.rd-card h2 {
+  font-size: 20px;
+  font-weight: 500;
+}
+
+/* ---------- gallery ---------- */
+.rd-gallery {
+  display: grid;
+  gap: 12px;
+}
+.rd-stage {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  border-radius: 14px;
+  background: #f0e2cc;
+}
+.rd-stage-btn {
+  position: absolute;
+  inset: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: zoom-in;
+}
+.rd-img {
+  object-fit: cover;
+}
+.rd-img-contain {
+  object-fit: contain;
+}
+
+.rd-arrow {
+  position: absolute;
+  top: 50%;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  transform: translateY(-50%);
+  border: 0;
+  border-radius: 50%;
+  background: var(--burgundy);
+  color: var(--cream);
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(43, 22, 24, 0.25);
+  transition: background 0.15s, transform 0.15s;
+}
+.rd-arrow:hover {
+  background: var(--burgundy-soft);
+  transform: translateY(-50%) scale(1.06);
+}
+.rd-prev {
+  left: 14px;
+}
+.rd-next {
+  right: 14px;
+}
+
+.rd-counter {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  z-index: 2;
+  padding: 3px 14px;
+  border-radius: 999px;
+  background: rgba(94, 20, 27, 0.92);
+  color: var(--cream);
+  font-size: 13px;
+  pointer-events: none;
+}
+
+.rd-caption {
+  color: var(--muted);
+  font-size: 15px;
+}
+
+.rd-thumbs {
+  display: flex;
+  gap: 10px;
+  margin: 0;
+  padding: 2px 2px 6px;
+  overflow-x: auto;
+  list-style: none;
+}
+.rd-thumb {
+  position: relative;
+  display: block;
+  width: 92px;
+  height: 72px;
+  overflow: hidden;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 12px;
+  background: #f0e2cc;
+  cursor: pointer;
+  opacity: 0.8;
+  transition: opacity 0.15s, border-color 0.15s;
+}
+.rd-thumb:hover {
+  opacity: 1;
+}
+.rd-thumb.is-active {
+  border-color: var(--gold-deep);
+  opacity: 1;
+}
+
+.rd-nophoto {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 10px;
+  min-height: 300px;
+  border-radius: 14px;
+  background: #f0e2cc;
+  color: var(--gold-deep);
+  font-size: 15px;
+}
+.rd-nophoto span {
+  color: var(--muted);
+}
+
+/* ---------- lightbox ---------- */
+.rd-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: grid;
+  place-items: center;
+  background: rgba(24, 10, 12, 0.92);
+}
+.rd-lb-frame {
+  position: relative;
+  width: min(92vw, 1100px);
+  height: 80vh;
+}
+.rd-lb-close {
+  position: absolute;
+  top: 16px;
+  right: 18px;
+  z-index: 3;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(253, 246, 236, 0.14);
+  color: #fff;
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+}
+.rd-lb-close:hover {
+  background: rgba(253, 246, 236, 0.28);
+}
+.rd-lb-arrow {
+  position: fixed;
+}
+.rd-lb-caption {
+  position: absolute;
+  bottom: 18px;
+  left: 50%;
+  max-width: 88vw;
+  transform: translateX(-50%);
+  padding: 4px 16px;
+  border-radius: 999px;
+  background: rgba(94, 20, 27, 0.92);
+  color: var(--cream);
+  font-size: 14px;
+  text-align: center;
+}
+
+/* ---------- ข้อมูลการเก็บ ---------- */
+.rd-rows {
+  display: grid;
+  margin: 0;
+}
+.rd-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+}
+.rd-row:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+.rd-row:last-child {
+  padding-bottom: 0;
+}
+.rd-row dt {
+  flex-shrink: 0;
+  color: var(--muted);
+  font-size: 15px;
+}
+.rd-row dd {
+  margin: 0;
+  text-align: right;
+  font-weight: 500;
+  word-break: break-word;
+}
+.rd-sci {
+  font-style: italic;
+}
+.rd-sub {
+  display: block;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 400;
+}
+.rd-collector {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.rd-avatar {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--burgundy);
+  color: var(--gold);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* ---------- แผนที่ ---------- */
+.rd-map {
+  height: 220px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #e9e1d2;
+  z-index: 0;
+}
+.rd-pin {
+  background: none;
+  border: 0;
+}
+.rd-map-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+}
+.rd-coords {
+  color: var(--muted);
+}
+.rd-link {
+  color: var(--burgundy);
+  font-weight: 500;
+  text-decoration: none;
+  border-bottom: 2px solid var(--gold-deep);
+}
+.rd-empty {
+  color: var(--muted);
+  font-size: 15px;
+}
+
+.rd-desc {
+  white-space: pre-line;
+  line-height: 1.75;
+}
+
+/* ---------- skeleton ---------- */
+.rd-skel {
+  border-radius: 14px;
+  background: linear-gradient(90deg, #f0e2cc 25%, #f7ecda 50%, #f0e2cc 75%);
+  background-size: 200% 100%;
+  animation: rd-shimmer 1.4s linear infinite;
+}
+.rd-skel-line {
+  height: 16px;
+}
+.rd-skel-title {
+  width: 280px;
+  max-width: 70%;
+  height: 48px;
+  margin: 20px 0 24px;
+}
+.rd-skel-stage {
+  height: 420px;
+}
+.rd-skel-side {
+  height: 360px;
+}
+@keyframes rd-shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* ---------- responsive ---------- */
+@media (max-width: 1024px) {
+  .rd-layout {
+    grid-template-columns: 1fr;
+  }
+  .rd-side {
+    position: static;
+  }
+}
+
+@media (max-width: 720px) {
+  .rd-heading {
+    flex-direction: column;
+    gap: 12px;
+  }
+  .rd-heading h1 {
+    font-size: 32px;
+  }
+  .rd-card {
+    padding: 20px 16px;
+  }
+  .rd-card-flush {
+    padding: 10px;
+  }
+  .rd-stage {
+    aspect-ratio: 4 / 3;
+  }
+  .rd-arrow {
+    width: 36px;
+    height: 36px;
+  }
+  .rd-lb-frame {
+    height: 70vh;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rd-skel {
+    animation: none;
+  }
+}
