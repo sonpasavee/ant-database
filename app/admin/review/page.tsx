@@ -47,7 +47,7 @@ async function AdminReviewData() {
               <h1>คิวตรวจสอบข้อมูล</h1>
               <p>ตรวจรายละเอียดและรูปภาพก่อนเผยแพร่ข้อมูล</p>
             </div>
-            <Link className="btn btn-outline" href="/admin">จัดการข้อมูลอ้างอิง</Link>
+            <Link className="btn btn-outline" href="/admin">ภาพรวมผู้ดูแล</Link>
           </header>
           <AdminReviewQueue initialRecords={records} speciesOptions={species} />
         </section>

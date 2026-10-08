@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { waitForNominatimSlot } from "@/lib/nominatim";
 
-const REQUEST_INTERVAL_MS = 1_100;
 const CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1_000;
 
-let nextRequestAt = 0;
 const cache = new Map<string, { expiresAt: number; value: ReverseResult }>();
 
 type ReverseResult = { label: string; province: string };
@@ -12,14 +11,6 @@ type NominatimResult = {
   display_name?: string;
   address?: Record<string, string | undefined>;
 };
-
-async function waitForRequestSlot() {
-  const now = Date.now();
-  const requestAt = Math.max(now, nextRequestAt);
-  nextRequestAt = requestAt + REQUEST_INTERVAL_MS;
-  const delay = requestAt - now;
-  if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay));
-}
 
 export async function GET(request: NextRequest) {
   const session = await auth();
@@ -55,7 +46,7 @@ export async function GET(request: NextRequest) {
   url.searchParams.set("accept-language", "th");
 
   try {
-    await waitForRequestSlot();
+    await waitForNominatimSlot();
     const response = await fetch(url, {
       headers: {
         "User-Agent": "AntDatabase/1.0 (field observation location lookup)",

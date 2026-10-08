@@ -127,6 +127,30 @@ export const listSpecies = async () =>
     toOption("species", r),
   );
 
+export type GbifSpeciesResult = {
+  gbifKey: number;
+  scientificName: string;
+  canonicalName: string;
+  authorship: string;
+  genus: string | null;
+  family: string;
+};
+
+export async function searchGbifSpecies(query: string, signal?: AbortSignal) {
+  const result = await request<{ results: GbifSpeciesResult[] }>(
+    `/api/species/search?q=${encodeURIComponent(query)}`,
+    { signal },
+  );
+  return result.results;
+}
+
+export async function resolveGbifSpecies(gbifKey: number) {
+  return request<{ id: number; commonName: string; scientificName: string }>(
+    "/api/species/resolve",
+    { method: "POST", body: JSON.stringify({ gbifKey }) },
+  );
+}
+
 export const listLocations = async () =>
   (await listAll("/api/locations")).map((r) =>
     toOption("location", r),

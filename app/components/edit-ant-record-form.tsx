@@ -55,8 +55,8 @@ export default function EditAntRecordForm({
   const [speciesId, setSpeciesId] = useState(record.speciesId ? String(record.speciesId) : "");
   const [locationId, setLocationId] = useState(record.locationId ? String(record.locationId) : "");
   const [locationText, setLocationText] = useState(record.locationText);
-  const [latitude, setLatitude] = useState(record.latitude === null ? "" : String(record.latitude));
-  const [longitude, setLongitude] = useState(record.longitude === null ? "" : String(record.longitude));
+  const latitude = record.latitude === null ? "" : String(record.latitude);
+  const longitude = record.longitude === null ? "" : String(record.longitude);
   const [methodId, setMethodId] = useState(record.collectionMethodId ? String(record.collectionMethodId) : "");
   const [methodOther, setMethodOther] = useState(record.collectionMethodOther);
   const [amount, setAmount] = useState(String(record.amount));
@@ -141,10 +141,7 @@ export default function EditAntRecordForm({
             </select>
           </div>
           {!locationId && <div className="field"><label htmlFor="edit-location-text">ชื่อสถานที่ <span className="req">*</span></label><input id="edit-location-text" className="input" value={locationText} maxLength={300} onChange={(event) => setLocationText(event.target.value)} /></div>}
-          <div className="edit-record-row">
-            <div className="field"><label htmlFor="edit-latitude">ละติจูด</label><input id="edit-latitude" className="input" type="number" min={-90} max={90} step="any" value={latitude} onChange={(event) => setLatitude(event.target.value)} /></div>
-            <div className="field"><label htmlFor="edit-longitude">ลองจิจูด</label><input id="edit-longitude" className="input" type="number" min={-180} max={180} step="any" value={longitude} onChange={(event) => setLongitude(event.target.value)} /></div>
-          </div>
+
           <div className="field"><label htmlFor="edit-method">วิธีเก็บ</label>
             <select id="edit-method" className="input select" value={methodId} onChange={(event) => setMethodId(event.target.value)}>
               <option value="">ระบุวิธีเก็บอื่น</option>

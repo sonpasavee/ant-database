@@ -9,7 +9,9 @@ import {
   createAnt,
   listLocations,
   listMethods,
-  listSpecies,
+  resolveGbifSpecies,
+  searchGbifSpecies,
+  type GbifSpeciesResult,
   type Option,
 } from "@/lib/ants-api";
 import AddLocationModal from "./add-location-modal";
@@ -178,11 +180,16 @@ function parseCoord(v: string): number | null {
 export default function AntForm({ userId }: { userId: string }) {
   const router = useRouter();
 
-  const species = useOptions(listSpecies);
   const locations = useOptions(listLocations);
   const methods = useOptions(listMethods);
 
-  const [speciesId, setSpeciesId] = useState("");
+  const [speciesQuery, setSpeciesQuery] = useState("");
+  const [speciesResults, setSpeciesResults] = useState<GbifSpeciesResult[]>([]);
+  const [selectedSpecies, setSelectedSpecies] = useState<GbifSpeciesResult | null>(null);
+  const [speciesSearching, setSpeciesSearching] = useState(false);
+  const [speciesSearchError, setSpeciesSearchError] = useState("");
+  const [showSpeciesResults, setShowSpeciesResults] = useState(false);
+  const speciesSearchRequest = useRef(0);
   const [quantity, setQuantity] = useState("");
   const [methodId, setMethodId] = useState("");
   const [methodOther, setMethodOther] = useState("");
@@ -204,6 +211,38 @@ export default function AntForm({ userId }: { userId: string }) {
   const [showLocationModal, setShowLocationModal] = useState(false);
   const locationLookupRequest = useRef(0);
 
+  useEffect(() => {
+    const query = speciesQuery.trim();
+    const requestId = ++speciesSearchRequest.current;
+    if (query.length < 3 || selectedSpecies) return;
+
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      setSpeciesSearching(true);
+      try {
+        const results = await searchGbifSpecies(query, controller.signal);
+        if (requestId === speciesSearchRequest.current) {
+          setSpeciesResults(results);
+          setShowSpeciesResults(true);
+        }
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        if (requestId === speciesSearchRequest.current) {
+          setSpeciesResults([]);
+          setSpeciesSearchError(error instanceof Error ? error.message : "ค้นหาชนิดมดไม่สำเร็จ");
+          setShowSpeciesResults(true);
+        }
+      } finally {
+        if (requestId === speciesSearchRequest.current) setSpeciesSearching(false);
+      }
+    }, 600);
+
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [speciesQuery, selectedSpecies]);
+
   // ตั้งวันที่/เวลาเริ่มต้นหลัง mount (กัน hydration mismatch)
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -222,6 +261,10 @@ export default function AntForm({ userId }: { userId: string }) {
   /* ---------- ตรวจข้อมูล ---------- */
   function validate(): Errors {
     const e: Errors = {};
+
+    if (speciesQuery.trim() && !selectedSpecies) {
+      e.speciesId = "เลือกชนิดมดจากผลการค้นหา หรือเว้นว่างไว้เพื่อจำแนกภายหลัง";
+    }
 
     if (quantity.trim() === "") {
       e.quantity = "กรุณากรอกจำนวนที่เก็บได้";
@@ -281,13 +324,12 @@ export default function AntForm({ userId }: { userId: string }) {
       return;
     }
 
-    // หา option เพื่อส่ง id ตามชนิดเดิมของ API (number/string)
+    // ตรวจ reference ที่ยังเป็นข้อมูลในฐานข้อมูลของแอป
     const find = (list: Option[], v: string) =>
       list.find((o) => String(o.id) === v);
-    const sp = find(species.items, speciesId);
     const loc = find(locations.items, locationId);
     const me = find(methods.items, methodId);
-    if ((speciesId && !sp) || (locationId && !loc) || (methodId && !me)) {
+    if ((locationId && !loc) || (methodId && !me)) {
       setFormError("รายการที่เลือกไม่ถูกต้อง กรุณาเลือกใหม่");
       return;
     }
@@ -296,8 +338,11 @@ export default function AntForm({ userId }: { userId: string }) {
     const lng = parseCoord(longitude);
     setBusy(mode);
     try {
+      const resolvedSpecies = selectedSpecies
+        ? await resolveGbifSpecies(selectedSpecies.gbifKey)
+        : null;
       await createAnt({
-        speciesId: sp ? Number(sp.id) : null,
+        speciesId: resolvedSpecies?.id ?? null,
         locationId: loc ? Number(loc.id) : null,
         ...(loc ? {} : { locationText: locationText.trim() }),
         ...(lat !== null && lng !== null ? { latitude: lat, longitude: lng } : {}),
@@ -320,6 +365,8 @@ export default function AntForm({ userId }: { userId: string }) {
         setFormError(err.message || "ข้อมูลไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง");
       } else if (err instanceof ApiError && err.status === 403) {
         setFormError("บัญชีนี้ไม่มีสิทธิ์เพิ่มข้อมูล");
+      } else if (err instanceof ApiError) {
+        setFormError(err.message || "บันทึกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
       } else {
         setFormError("บันทึกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
       }
@@ -364,6 +411,19 @@ export default function AntForm({ userId }: { userId: string }) {
     clearError("latitude");
     clearError("longitude");
     void resolveCoordinates(lat, lng);
+  }
+
+  function handlePlaceSelect(lat: number, lng: number, label: string) {
+    locationLookupRequest.current += 1;
+    setLocationId("");
+    setLocationText(label);
+    setLocationLookup("เลือกสถานที่แล้ว — ตรวจสอบตำแหน่งหมุดและปรับได้บนแผนที่");
+    setLatitude(String(Math.round(lat * 1e6) / 1e6));
+    setLongitude(String(Math.round(lng * 1e6) / 1e6));
+    clearError("locationText");
+    clearError("locationId");
+    clearError("latitude");
+    clearError("longitude");
   }
 
   function useCurrentPosition() {
@@ -441,23 +501,79 @@ export default function AntForm({ userId }: { userId: string }) {
             <section className="card" aria-labelledby="sec-main">
               <h2 id="sec-main">ข้อมูลหลัก</h2>
 
-              <SelectField
-                id="speciesId"
-                label="ชนิดมด"
-                value={speciesId}
-                onChange={(v) => {
-                  setSpeciesId(v);
-                  clearError("speciesId");
-                }}
-                options={species.items}
-                loading={species.loading}
-                loadError={species.error}
-                onRetry={species.reload}
-                error={errors.speciesId}
-                placeholder="เลือกชนิดมด"
-                required={false}
-                hint="ไม่พบชนิดที่ต้องการ? ติดต่อผู้ดูแลเพื่อเพิ่มในรายการ"
-              />
+              <div className="field species-search-field">
+                <label htmlFor="field-speciesId">ชนิดมด</label>
+                {selectedSpecies ? (
+                  <div className="selected-species">
+                    <span><strong>{selectedSpecies.canonicalName}</strong><small>{selectedSpecies.authorship || selectedSpecies.scientificName}</small></span>
+                    <button
+                      type="button"
+                      className="text-btn"
+                      onClick={() => {
+                        setSelectedSpecies(null);
+                        setSpeciesQuery("");
+                        setSpeciesResults([]);
+                        setSpeciesSearchError("");
+                        setShowSpeciesResults(false);
+                      }}
+                    >
+                      เปลี่ยนชนิดมด
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <input
+                      id="field-speciesId"
+                      className="input"
+                      value={speciesQuery}
+                      onChange={(event) => {
+                        setSpeciesQuery(event.target.value);
+                        setSelectedSpecies(null);
+                        setSpeciesResults([]);
+                        setSpeciesSearchError("");
+                        setShowSpeciesResults(false);
+                        clearError("speciesId");
+                      }}
+                      maxLength={100}
+                      autoComplete="off"
+                      placeholder="ค้นหาชื่อมด เช่น Oecophylla smaragdina"
+                      aria-controls="species-search-results"
+                      aria-invalid={errors.speciesId ? true : undefined}
+                    />
+                    {speciesQuery.trim().length > 0 && speciesQuery.trim().length < 3 && (
+                      <small className="field-hint">พิมพ์อย่างน้อย 3 ตัวอักษรเพื่อค้นหา</small>
+                    )}
+                    {showSpeciesResults && speciesQuery.trim().length >= 3 && (
+                      <div id="species-search-results" className="species-search-results" role="listbox" aria-label="ผลค้นหาชนิดมดจาก GBIF">
+                        {speciesSearching && <p className="place-search-message" role="status">กำลังค้นหาชื่อวิทยาศาสตร์จาก GBIF…</p>}
+                        {!speciesSearching && speciesSearchError && <p className="place-search-message" role="status">{speciesSearchError}</p>}
+                        {!speciesSearching && !speciesSearchError && speciesResults.length === 0 && <p className="place-search-message">ไม่พบชื่อมด ลองค้นด้วยชื่อวิทยาศาสตร์</p>}
+                        {!speciesSearching && speciesResults.map((result) => (
+                          <button
+                            key={result.gbifKey}
+                            type="button"
+                            role="option"
+                            aria-selected="false"
+                            className="place-search-option"
+                            onClick={() => {
+                              setSelectedSpecies(result);
+                              setSpeciesQuery(result.canonicalName);
+                              setSpeciesResults([]);
+                              setShowSpeciesResults(false);
+                              clearError("speciesId");
+                            }}
+                          >
+                            <strong>{result.canonicalName}</strong>
+                            {result.authorship && <small>{result.authorship}</small>}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+                {errors.speciesId && <p className="field-error">{errors.speciesId}</p>}
+                <p className="field-hint">ค้นหาเฉพาะวงศ์มด (Formicidae) จาก <a href="https://www.gbif.org/" target="_blank" rel="noreferrer">GBIF</a> หรือเว้นว่างไว้เพื่อจำแนกชนิดภายหลัง</p>
+              </div>
 
               <div className="row row-3">
                 <div className="field">
@@ -637,6 +753,7 @@ export default function AntForm({ userId }: { userId: string }) {
                   lat={parseCoord(latitude)}
                   lng={parseCoord(longitude)}
                   onPick={handleCoordinatePick}
+                  onPlaceSelect={handlePlaceSelect}
                 />
                 {locationLookup && (
                   <p className="map-location-result" role="status" aria-live="polite">
@@ -645,64 +762,14 @@ export default function AntForm({ userId }: { userId: string }) {
                 )}
               </div>
 
-              <div className="row row-coords">
-                <div className="field">
-                  <label htmlFor="field-latitude">ละติจูด</label>
-                  <input
-                    id="field-latitude"
-                    className="input"
-                    inputMode="decimal"
-                    value={latitude}
-                    onChange={(e) => {
-                      setLatitude(e.target.value);
-                      clearError("latitude");
-                    }}
-                    placeholder="เช่น 14.4285"
-                    aria-invalid={errors.latitude ? true : undefined}
-                    aria-describedby={
-                      errors.latitude ? "latitude-error" : undefined
-                    }
-                  />
-                  {errors.latitude && (
-                    <p id="latitude-error" className="field-error">
-                      {errors.latitude}
-                    </p>
-                  )}
-                </div>
-
-                <div className="field">
-                  <label htmlFor="field-longitude">ลองจิจูด</label>
-                  <input
-                    id="field-longitude"
-                    className="input"
-                    inputMode="decimal"
-                    value={longitude}
-                    onChange={(e) => {
-                      setLongitude(e.target.value);
-                      clearError("longitude");
-                    }}
-                    placeholder="เช่น 101.3720"
-                    aria-invalid={errors.longitude ? true : undefined}
-                    aria-describedby={
-                      errors.longitude ? "longitude-error" : undefined
-                    }
-                  />
-                  {errors.longitude && (
-                    <p id="longitude-error" className="field-error">
-                      {errors.longitude}
-                    </p>
-                  )}
-                </div>
-
-                <button
+              <div className="field"><button
                   type="button"
                   className="btn btn-soft locate-btn"
                   onClick={useCurrentPosition}
                   disabled={locating}
                 >
                   {locating ? "กำลังค้นหา…" : "ใช้ตำแหน่งปัจจุบัน"}
-                </button>
-              </div>
+                </button></div>
             </section>
 
             <section className="card" aria-labelledby="sec-notes">

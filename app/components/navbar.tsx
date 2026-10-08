@@ -20,7 +20,7 @@ export default async function Navbar() {
     ...(user?.role === "ADMIN"
       ? [
           { href: "/admin/review", label: "คิวตรวจข้อมูล" },
-          { href: "/admin", label: "จัดการข้อมูล" },
+          { href: "/admin", label: "Dashboard" },
         ]
       : []),
   ];
