@@ -1,0 +1,22 @@
+.record-delete-control { display: grid; justify-items: start; gap: 6px; }
+.record-delete-error { margin: 0; color: var(--danger); font-size: 13px; }
+.btn-danger-outline { border: 1px solid var(--danger); background: #fff; color: var(--danger); }
+.btn-danger-outline:hover { background: #fff1f0; }
+.btn-danger { border: 1px solid var(--danger); background: var(--danger); color: #fff; }
+.btn-danger:hover { filter: brightness(.92); }
+.record-delete-dialog { width: min(100% - 32px, 440px); max-width: 440px; max-height: min(90dvh, 640px); padding: 0; overflow: auto; border: 1px solid var(--line); border-radius: 20px; background: #fff; color: var(--ink); box-shadow: 0 24px 80px #1e0a0d40; }
+.record-delete-dialog::backdrop { background: rgb(31 16 17 / 58%); backdrop-filter: blur(3px); }
+.record-delete-dialog-content { display: grid; justify-items: center; gap: 12px; padding: 30px; text-align: center; }
+.record-delete-icon { display: grid; width: 56px; height: 56px; place-items: center; border-radius: 50%; background: #fff1f0; color: var(--danger); }
+.record-delete-icon svg { width: 28px; height: 28px; }
+.record-delete-dialog h2 { margin: 0; color: var(--ink); font-size: 22px; }
+.record-delete-dialog-content > p:not(.record-delete-error):not(.record-delete-progress) { margin: 0; color: var(--muted); line-height: 1.65; }
+.record-delete-dialog .record-delete-error { width: 100%; padding: 10px 12px; border-radius: 8px; background: #fff1f0; text-align: left; }
+.record-delete-dialog-actions { display: flex; justify-content: center; flex-wrap: wrap; gap: 10px; width: 100%; margin-top: 8px; }
+.record-delete-dialog-actions button { min-width: 112px; }
+.record-delete-progress { margin: 0; color: var(--muted); font-size: 13px; }
+@media (max-width: 480px) {
+  .record-delete-dialog-content { padding: 24px 18px; }
+  .record-delete-dialog-actions { flex-direction: column-reverse; }
+  .record-delete-dialog-actions button { width: 100%; }
+}

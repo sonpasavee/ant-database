@@ -85,6 +85,7 @@ model AntSpecies {
   scientificName String   @unique
   genus          String?
   family         String?
+  subfamily      String?
   description    String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -141,11 +142,7 @@ model AntRecord {
   speciesId          Int?
   amount             Int
   locationId         Int?
-  locationText       String?
-  latitude           Float?
-  longitude          Float?
   collectionMethodId Int?
-  collectionMethodOther String?
   collectedById      String
 
   collectedAt        DateTime
@@ -158,10 +155,12 @@ model AntRecord {
   updatedAt          DateTime @updatedAt
 
   species            AntSpecies?      @relation(fields: [speciesId], references: [id])
-  location           Location?        @relation(fields: [locationId], references: [id])
-  collectionMethod   CollectionMethod? @relation(fields: [collectionMethodId], references: [id])
+  location           Location?        @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  collectionMethod   CollectionMethod? @relation(fields: [collectionMethodId], references: [id], onDelete: Restrict)
   collectedBy        User             @relation(fields: [collectedById], references: [id])
   images             AntImage[]
+
+  @@index([speciesId, status, locationId])
 }
 
 model AntImage {
@@ -177,4 +176,17 @@ model AntImage {
 
   @@index([antRecordId])
   @@map("ant_images")
+}
+
+model CloudinaryCleanupJob {
+  id            String   @id @default(cuid())
+  publicId      String   @unique
+  attempts      Int      @default(0)
+  nextAttemptAt DateTime @default(now())
+  lockedUntil   DateTime?
+  lastError     String?  @db.Text
+  createdAt     DateTime @default(now())
+
+  @@index([nextAttemptAt, lockedUntil, createdAt])
+  @@map("cloudinary_cleanup_jobs")
 }

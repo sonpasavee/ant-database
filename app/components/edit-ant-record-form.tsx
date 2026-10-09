@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import AntImageUpload, { type UploadedAntImage } from "./ant-image-upload";
+import SpeciesPicker from "./species-picker";
 import "./ant-form.css";
 import "./edit-ant-record-form.css";
 
@@ -13,13 +14,11 @@ type EditRecord = {
   amount: number;
   locationId: number | null;
   locationText: string;
-  latitude: number | null;
-  longitude: number | null;
   collectionMethodId: number | null;
   collectionMethodOther: string;
   collectedAt: string;
   description: string;
-  status: "DRAFT" | "REJECTED";
+  status: "DRAFT" | "PENDING" | "APPROVED" | "REJECTED";
   images: UploadedAntImage[];
 };
 
@@ -45,18 +44,20 @@ export default function EditAntRecordForm({
   record,
   options,
   userId,
+  isAdmin = false,
+  returnTo = "/my-records",
 }: {
   record: EditRecord;
-  options: { species: { id: number; commonName: string; scientificName: string }[]; locations: { id: number; name: string; province: string | null }[]; methods: { id: number; name: string }[] };
+  options: { species: { id: number; commonName: string; scientificName: string } | null; locations: { id: number; name: string; province: string | null }[]; methods: { id: number; name: string }[] };
   userId: string;
+  isAdmin?: boolean;
+  returnTo?: string;
 }) {
   const router = useRouter();
   const initial = initialDateTime(record.collectedAt);
   const [speciesId, setSpeciesId] = useState(record.speciesId ? String(record.speciesId) : "");
   const [locationId, setLocationId] = useState(record.locationId ? String(record.locationId) : "");
   const [locationText, setLocationText] = useState(record.locationText);
-  const latitude = record.latitude === null ? "" : String(record.latitude);
-  const longitude = record.longitude === null ? "" : String(record.longitude);
   const [methodId, setMethodId] = useState(record.collectionMethodId ? String(record.collectionMethodId) : "");
   const [methodOther, setMethodOther] = useState(record.collectionMethodOther);
   const [amount, setAmount] = useState(String(record.amount));
@@ -86,11 +87,9 @@ export default function EditAntRecordForm({
         body: JSON.stringify({
           speciesId: speciesId ? Number(speciesId) : null,
           locationId: locationId ? Number(locationId) : null,
-          locationText: locationId ? null : locationText.trim(),
-          latitude: latitude ? Number(latitude) : null,
-          longitude: longitude ? Number(longitude) : null,
+          locationName: locationId ? undefined : locationText.trim(),
           collectionMethodId: methodId ? Number(methodId) : null,
-          collectionMethodOther: methodId ? null : methodOther.trim(),
+          collectionMethodName: methodId ? undefined : methodOther.trim(),
           amount: Number(amount),
           collectedAt: new Date(`${date}T${time}`).toISOString(),
           description,
@@ -100,7 +99,7 @@ export default function EditAntRecordForm({
       const result = await response.json().catch(() => null);
       if (!response.ok) throw new Error(result?.message ?? "บันทึกการแก้ไขไม่สำเร็จ");
 
-      if (mode === "submit") {
+      if (mode === "submit" && !isAdmin) {
         const statusResponse = await fetch(`/api/ants/${record.id}/status`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -110,7 +109,7 @@ export default function EditAntRecordForm({
         if (!statusResponse.ok) throw new Error(statusResult?.message ?? "บันทึกแล้ว แต่ส่งตรวจอีกครั้งไม่สำเร็จ");
       }
 
-      router.push(`/my-records?saved=${mode === "submit" ? "submit" : "draft"}`);
+      router.push(isAdmin ? returnTo : `/my-records?saved=${mode === "submit" ? "submit" : "draft"}`);
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "เกิดข้อผิดพลาด กรุณาลองใหม่");
       setBusy(null);
@@ -120,18 +119,15 @@ export default function EditAntRecordForm({
   return (
     <div className="container form-page">
       <nav className="breadcrumb" aria-label="เส้นทาง">
-        <Link href="/my-records">ข้อมูลของฉัน</Link><span aria-hidden="true">›</span><span aria-current="page">แก้ไขรายการ</span>
+        <Link href={returnTo}>{isAdmin ? "จัดการข้อมูลทั้งหมด" : "ข้อมูลของฉัน"}</Link><span aria-hidden="true">›</span><span aria-current="page">แก้ไขรายการ</span>
       </nav>
-      <div className="page-title"><h1>แก้ไขข้อมูลมด</h1><span className="chip chip-draft"><i aria-hidden="true" />{record.status === "DRAFT" ? "ฉบับร่าง" : "ต้องแก้ไข"}</span></div>
+      <div className="page-title"><h1>แก้ไขข้อมูลมด</h1><span className="chip chip-draft"><i aria-hidden="true" />{record.status === "DRAFT" ? "ฉบับร่าง" : record.status === "REJECTED" ? "ต้องแก้ไข" : record.status === "PENDING" ? "รอตรวจสอบ" : "อนุมัติแล้ว"}</span></div>
       {error && <p className="alert alert-error form-alert" role="alert">{error}</p>}
       <div className="edit-record-layout">
         <section className="card">
           <h2>ข้อมูลการสำรวจ</h2>
           <div className="field"><label htmlFor="edit-species">ชนิดมด <span className="req">*</span></label>
-            <select id="edit-species" className="input select" value={speciesId} onChange={(event) => setSpeciesId(event.target.value)}>
-              <option value="">ยังไม่ทราบชนิด</option>
-              {options.species.map((item) => <option key={item.id} value={item.id}>{item.commonName} · {item.scientificName}</option>)}
-            </select>
+            <SpeciesPicker id="edit-species" value={speciesId} initialSpecies={options.species} onChange={setSpeciesId} />
           </div>
           <div className="field"><label htmlFor="edit-amount">จำนวน <span className="req">*</span></label><input id="edit-amount" className="input" type="number" min={1} step={1} required value={amount} onChange={(event) => setAmount(event.target.value)} /></div>
           <div className="field"><label htmlFor="edit-location">สถานที่ <span className="req">*</span></label>
@@ -160,10 +156,16 @@ export default function EditAntRecordForm({
           <AntImageUpload images={images} onChange={setImages} onUploadingChange={setUploading} disabled={busy !== null || uploading} maxFiles={5} userId={userId} />
         </section>
         <div className="action-bar edit-record-actions">
-          <Link href="/my-records" className="cancel-link">ยกเลิก</Link>
+          <Link href={returnTo} className="cancel-link">ยกเลิก</Link>
           <div className="action-buttons">
-            <button type="button" className="btn btn-outline" onClick={() => void save("save")} disabled={busy !== null || uploading}>{busy === "save" ? "กำลังบันทึก…" : "บันทึกร่าง"}</button>
-            <button type="button" className="btn btn-primary" onClick={() => void save("submit")} disabled={busy !== null || uploading}>{busy === "submit" ? "กำลังส่ง…" : "บันทึกและส่งตรวจ"}</button>
+            {isAdmin ? (
+              <button type="button" className="btn btn-primary" onClick={() => void save("save")} disabled={busy !== null || uploading}>{busy === "save" ? "กำลังบันทึก…" : "บันทึกการแก้ไข"}</button>
+            ) : (
+              <>
+                <button type="button" className="btn btn-outline" onClick={() => void save("save")} disabled={busy !== null || uploading}>{busy === "save" ? "กำลังบันทึก…" : "บันทึกร่าง"}</button>
+                <button type="button" className="btn btn-primary" onClick={() => void save("submit")} disabled={busy !== null || uploading}>{busy === "submit" ? "กำลังส่ง…" : "บันทึกและส่งตรวจ"}</button>
+              </>
+            )}
           </div>
         </div>
       </div>

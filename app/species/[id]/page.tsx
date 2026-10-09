@@ -7,6 +7,8 @@ import Footer from "../../components/footer";
 import LoadingIndicator from "../../components/loading-indicator";
 import Navbar from "../../components/navbar";
 import ObservationCard from "../../components/observation-card";
+import Pagination from "../../components/pagination";
+import SpeciesMap from "./species-map";
 import "./species-detail.css";
 
 export const metadata: Metadata = { title: "รายละเอียดชนิดมด · Ant Database" };
@@ -37,12 +39,43 @@ async function SpeciesDetailContent({
   const pageValue = Array.isArray(query.page) ? query.page[0] : query.page;
   const parsedPage = Number(pageValue ?? "1");
   const requestedPage = Number.isSafeInteger(parsedPage) && parsedPage > 0 ? parsedPage : 1;
-  const [species, total] = await Promise.all([
+  const [species, total, mapLocations] = await Promise.all([
     prisma.antSpecies.findUnique({
       where: { id },
       include: { aliases: { orderBy: { name: "asc" } } },
     }),
     prisma.antRecord.count({ where: { speciesId: id, status: "APPROVED" } }),
+    prisma.location.findMany({
+      where: {
+        latitude: { not: null },
+        longitude: { not: null },
+        records: { some: { speciesId: id, status: "APPROVED" } },
+      },
+      select: {
+        id: true,
+        name: true,
+        province: true,
+        latitude: true,
+        longitude: true,
+        _count: {
+          select: {
+            records: { where: { speciesId: id, status: "APPROVED" } },
+          },
+        },
+        records: {
+          where: { speciesId: id, status: "APPROVED" },
+          select: {
+            id: true,
+            amount: true,
+            collectedAt: true,
+            collectionMethod: { select: { name: true } },
+          },
+          orderBy: { collectedAt: "desc" },
+          take: 5,
+        },
+      },
+      orderBy: [{ province: "asc" }, { name: "asc" }],
+    }),
   ]);
   if (!species) notFound();
 
@@ -60,6 +93,33 @@ async function SpeciesDetailContent({
     skip: (page - 1) * PAGE_SIZE,
     take: PAGE_SIZE,
   });
+  const speciesMapLocations = mapLocations.flatMap((location) => {
+    if (
+      location.latitude === null ||
+      location.longitude === null ||
+      !Number.isFinite(location.latitude) ||
+      !Number.isFinite(location.longitude) ||
+      location.latitude < -90 ||
+      location.latitude > 90 ||
+      location.longitude < -180 ||
+      location.longitude > 180
+    ) return [];
+    return [{
+      id: location.id,
+      name: location.name,
+      province: location.province,
+      latitude: location.latitude,
+      longitude: location.longitude,
+      recordCount: location._count.records,
+      records: location.records.map((record) => ({
+        id: record.id,
+        amount: record.amount,
+        collectedAt: record.collectedAt.toISOString(),
+        collectionMethod: record.collectionMethod?.name ?? null,
+      })),
+    }];
+  });
+  const mappedRecords = speciesMapLocations.reduce((sum, location) => sum + location.recordCount, 0);
 
   const pageHref = (nextPage: number) => `/species/${id}?page=${nextPage}`;
 
@@ -81,6 +141,7 @@ async function SpeciesDetailContent({
           <div className="species-facts">
             {species.genus && <div><span>สกุล</span><strong>{species.genus}</strong></div>}
             {species.family && <div><span>วงศ์</span><strong>{species.family}</strong></div>}
+            {species.subfamily && <div><span>วงศ์ย่อย</span><strong>{species.subfamily}</strong></div>}
             {species.aliases.length > 0 && (
               <div className="species-aliases"><span>ชื่อเรียกอื่น</span><strong>{species.aliases.map((alias) => alias.name).join(", ")}</strong></div>
             )}
@@ -90,9 +151,26 @@ async function SpeciesDetailContent({
           <div className="species-records-heading">
             <div>
               <h2>บันทึกการพบมด</h2>
-              <p>แต่ละรายการเก็บแยกตามสถานที่ วันเวลา พิกัด และผู้บันทึก</p>
+              <p>ดูจุดที่พบมดชนิดนี้บนแผนที่ และรายละเอียดการสำรวจแต่ละรายการ</p>
             </div>
           </div>
+
+          <section className="species-map-section" aria-labelledby="species-map-title">
+            <header className="species-map-heading">
+              <div>
+                <h2 id="species-map-title">แผนที่จุดที่พบ</h2>
+                <p>แสดงตำแหน่งจากพิกัดของสถานที่ที่เชื่อมกับบันทึกที่เผยแพร่แล้ว</p>
+              </div>
+              <div className="species-map-stats" aria-label="สรุปตำแหน่ง">
+                <span><strong>{speciesMapLocations.length.toLocaleString("th-TH")}</strong> สถานที่บนแผนที่</span>
+                <span><strong>{mappedRecords.toLocaleString("th-TH")}</strong> บันทึกมีพิกัด</span>
+                {total > mappedRecords && (
+                  <span><strong>{(total - mappedRecords).toLocaleString("th-TH")}</strong> บันทึกยังไม่มีพิกัด</span>
+                )}
+              </div>
+            </header>
+            <SpeciesMap locations={speciesMapLocations} />
+          </section>
 
           {records.length ? (
             <div className="record-grid">
@@ -102,13 +180,7 @@ async function SpeciesDetailContent({
             <div className="records-empty"><h2>ยังไม่มีบันทึกที่เผยแพร่</h2></div>
           )}
 
-          {totalPages > 1 && (
-            <nav className="records-pagination" aria-label="เปลี่ยนหน้าบันทึก">
-              {page > 1 ? <Link className="btn btn-outline" href={pageHref(page - 1)}>หน้าก่อน</Link> : <span />}
-              <span>หน้า {page} / {totalPages}</span>
-              {page < totalPages ? <Link className="btn btn-outline" href={pageHref(page + 1)}>หน้าถัดไป</Link> : <span />}
-            </nav>
-          )}
+          <Pagination page={page} totalPages={totalPages} totalItems={total} pageSize={PAGE_SIZE} hrefForPage={pageHref} label="เปลี่ยนหน้าบันทึกของชนิดมด" />
         </section>
       </main>
       <Footer />

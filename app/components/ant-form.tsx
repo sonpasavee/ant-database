@@ -9,9 +9,7 @@ import {
   createAnt,
   listLocations,
   listMethods,
-  resolveGbifSpecies,
-  searchGbifSpecies,
-  type GbifSpeciesResult,
+  saveAntSpecies,
   type Option,
 } from "@/lib/ants-api";
 import AddLocationModal from "./add-location-modal";
@@ -20,7 +18,10 @@ import AntImageUpload, { type UploadedAntImage } from "./ant-image-upload";
 
 /* ---------- ชนิดข้อมูลฟอร์ม ---------- */
 type FieldKey =
-  | "speciesId"
+  | "commonName"
+  | "scientificName"
+  | "genus"
+  | "subfamily"
   | "quantity"
   | "methodId"
   | "date"
@@ -36,7 +37,10 @@ type Errors = Partial<Record<FieldKey, string>>;
 type SubmitMode = "draft" | "submit";
 
 const FIELD_ORDER: FieldKey[] = [
-  "speciesId",
+  "commonName",
+  "scientificName",
+  "genus",
+  "subfamily",
   "quantity",
   "methodId",
   "date",
@@ -183,13 +187,10 @@ export default function AntForm({ userId }: { userId: string }) {
   const locations = useOptions(listLocations);
   const methods = useOptions(listMethods);
 
-  const [speciesQuery, setSpeciesQuery] = useState("");
-  const [speciesResults, setSpeciesResults] = useState<GbifSpeciesResult[]>([]);
-  const [selectedSpecies, setSelectedSpecies] = useState<GbifSpeciesResult | null>(null);
-  const [speciesSearching, setSpeciesSearching] = useState(false);
-  const [speciesSearchError, setSpeciesSearchError] = useState("");
-  const [showSpeciesResults, setShowSpeciesResults] = useState(false);
-  const speciesSearchRequest = useRef(0);
+  const [commonName, setCommonName] = useState("");
+  const [scientificName, setScientificName] = useState("");
+  const [genus, setGenus] = useState("");
+  const [subfamily, setSubfamily] = useState("");
   const [quantity, setQuantity] = useState("");
   const [methodId, setMethodId] = useState("");
   const [methodOther, setMethodOther] = useState("");
@@ -211,38 +212,6 @@ export default function AntForm({ userId }: { userId: string }) {
   const [showLocationModal, setShowLocationModal] = useState(false);
   const locationLookupRequest = useRef(0);
 
-  useEffect(() => {
-    const query = speciesQuery.trim();
-    const requestId = ++speciesSearchRequest.current;
-    if (query.length < 3 || selectedSpecies) return;
-
-    const controller = new AbortController();
-    const timer = window.setTimeout(async () => {
-      setSpeciesSearching(true);
-      try {
-        const results = await searchGbifSpecies(query, controller.signal);
-        if (requestId === speciesSearchRequest.current) {
-          setSpeciesResults(results);
-          setShowSpeciesResults(true);
-        }
-      } catch (error) {
-        if (controller.signal.aborted) return;
-        if (requestId === speciesSearchRequest.current) {
-          setSpeciesResults([]);
-          setSpeciesSearchError(error instanceof Error ? error.message : "ค้นหาชนิดมดไม่สำเร็จ");
-          setShowSpeciesResults(true);
-        }
-      } finally {
-        if (requestId === speciesSearchRequest.current) setSpeciesSearching(false);
-      }
-    }, 600);
-
-    return () => {
-      window.clearTimeout(timer);
-      controller.abort();
-    };
-  }, [speciesQuery, selectedSpecies]);
-
   // ตั้งวันที่/เวลาเริ่มต้นหลัง mount (กัน hydration mismatch)
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -262,8 +231,17 @@ export default function AntForm({ userId }: { userId: string }) {
   function validate(): Errors {
     const e: Errors = {};
 
-    if (speciesQuery.trim() && !selectedSpecies) {
-      e.speciesId = "เลือกชนิดมดจากผลการค้นหา หรือเว้นว่างไว้เพื่อจำแนกภายหลัง";
+    const hasSpeciesDetails = [
+      commonName,
+      scientificName,
+      genus,
+      subfamily,
+    ].some((value) => value.trim());
+    if (hasSpeciesDetails) {
+      if (!commonName.trim()) e.commonName = "กรอกชื่อสามัญของมด";
+      if (!scientificName.trim()) e.scientificName = "กรอกชื่อวิทยาศาสตร์ของมด";
+      if (!genus.trim()) e.genus = "กรอกสกุลของมด";
+      if (!subfamily.trim()) e.subfamily = "กรอกวงศ์ย่อยของมด";
     }
 
     if (quantity.trim() === "") {
@@ -274,14 +252,16 @@ export default function AntForm({ userId }: { userId: string }) {
       else if (n < 1) e.quantity = "ต้องไม่น้อยกว่า 1";
     }
 
-    if (!methodId && !methodOther.trim()) e.methodId = "เลือกวิธีเก็บ หรือระบุวิธีอื่น";
+    if (!methodId && !methodOther.trim())
+      e.methodId = "เลือกวิธีเก็บ หรือระบุวิธีอื่น";
 
     if (!date) e.date = "กรุณาเลือกวันที่เก็บ";
     else if (today && date > today) e.date = "วันที่เก็บต้องไม่เป็นวันในอนาคต";
 
     if (!time) e.time = "กรุณาระบุเวลา";
 
-    if (!locationId && !locationText.trim()) e.locationId = "เลือกสถานที่ หรือระบุสถานที่เอง";
+    if (!locationId && !locationText.trim())
+      e.locationId = "เลือกสถานที่ หรือระบุสถานที่เอง";
 
     const lat = parseCoord(latitude);
     const lng = parseCoord(longitude);
@@ -338,16 +318,27 @@ export default function AntForm({ userId }: { userId: string }) {
     const lng = parseCoord(longitude);
     setBusy(mode);
     try {
-      const resolvedSpecies = selectedSpecies
-        ? await resolveGbifSpecies(selectedSpecies.gbifKey)
-        : null;
+      const savedSpecies =
+        commonName.trim() ||
+        scientificName.trim() ||
+        genus.trim() ||
+        subfamily.trim()
+          ? await saveAntSpecies({
+              commonName: commonName.trim(),
+              scientificName: scientificName.trim(),
+              genus: genus.trim(),
+              subfamily: subfamily.trim(),
+            })
+          : null;
       await createAnt({
-        speciesId: resolvedSpecies?.id ?? null,
+        speciesId: savedSpecies?.id ?? null,
         locationId: loc ? Number(loc.id) : null,
-        ...(loc ? {} : { locationText: locationText.trim() }),
-        ...(lat !== null && lng !== null ? { latitude: lat, longitude: lng } : {}),
+        ...(loc ? {} : { locationName: locationText.trim() }),
+        ...(lat !== null && lng !== null
+          ? { locationLatitude: lat, locationLongitude: lng }
+          : {}),
         collectionMethodId: me ? Number(me.id) : null,
-        ...(me ? {} : { collectionMethodOther: methodOther.trim() }),
+        ...(me ? {} : { collectionMethodName: methodOther.trim() }),
         amount: Number(quantity),
         collectedAt: new Date(`${date}T${time}`).toISOString(),
         ...(notes.trim() ? { description: notes.trim() } : {}),
@@ -395,7 +386,9 @@ export default function AntForm({ userId }: { userId: string }) {
       if (requestId !== locationLookupRequest.current) return;
 
       setLocationText(result.label);
-      setLocationLookup(`พบจังหวัด${result.province}: ${result.label} — ตรวจสอบหรือแก้ไขได้`);
+      setLocationLookup(
+        `พบจังหวัด${result.province}: ${result.label} — ตรวจสอบหรือแก้ไขได้`,
+      );
       clearError("locationText");
       clearError("locationId");
     } catch {
@@ -417,7 +410,9 @@ export default function AntForm({ userId }: { userId: string }) {
     locationLookupRequest.current += 1;
     setLocationId("");
     setLocationText(label);
-    setLocationLookup("เลือกสถานที่แล้ว — ตรวจสอบตำแหน่งหมุดและปรับได้บนแผนที่");
+    setLocationLookup(
+      "เลือกสถานที่แล้ว — ตรวจสอบตำแหน่งหมุดและปรับได้บนแผนที่",
+    );
     setLatitude(String(Math.round(lat * 1e6) / 1e6));
     setLongitude(String(Math.round(lng * 1e6) / 1e6));
     clearError("locationText");
@@ -457,6 +452,8 @@ export default function AntForm({ userId }: { userId: string }) {
   const handleLocationCreated = (option: Option) => {
     locations.setItems([...locations.items, option]);
     setLocationId(String(option.id));
+    setLatitude(option.latitude == null ? "" : String(option.latitude));
+    setLongitude(option.longitude == null ? "" : String(option.longitude));
     clearError("locationId");
     setShowLocationModal(false);
   };
@@ -501,79 +498,108 @@ export default function AntForm({ userId }: { userId: string }) {
             <section className="card" aria-labelledby="sec-main">
               <h2 id="sec-main">ข้อมูลหลัก</h2>
 
-              <div className="field species-search-field">
-                <label htmlFor="field-speciesId">ชนิดมด</label>
-                {selectedSpecies ? (
-                  <div className="selected-species">
-                    <span><strong>{selectedSpecies.canonicalName}</strong><small>{selectedSpecies.authorship || selectedSpecies.scientificName}</small></span>
-                    <button
-                      type="button"
-                      className="text-btn"
-                      onClick={() => {
-                        setSelectedSpecies(null);
-                        setSpeciesQuery("");
-                        setSpeciesResults([]);
-                        setSpeciesSearchError("");
-                        setShowSpeciesResults(false);
-                      }}
-                    >
-                      เปลี่ยนชนิดมด
-                    </button>
-                  </div>
-                ) : (
-                  <>
+              <section
+                className="field species-manual-fields"
+                aria-labelledby="ant-species-fields"
+              >
+                <h3 id="ant-species-fields">ข้อมูลชนิดมด</h3>
+                <p className="field-hint">
+                  ค้นหาชื่อวิทยาศาสตร์จาก{" "}
+                  <a
+                    href="https://www.antweb.org/"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    AntWeb
+                  </a>{" "}
+                  หรือพิมพ์ชื่อมดเองในช่องนี้ได้โดยตรง
+                  แล้วกรอกข้อมูลด้านล่างด้วยตนเอง
+                </p>
+                <div className="row row-2">
+                  <div className="field">
+                    <label htmlFor="field-commonName">
+                      ชื่อสามัญ (Common name)
+                    </label>
                     <input
-                      id="field-speciesId"
+                      id="field-commonName"
                       className="input"
-                      value={speciesQuery}
+                      value={commonName}
+                      maxLength={200}
                       onChange={(event) => {
-                        setSpeciesQuery(event.target.value);
-                        setSelectedSpecies(null);
-                        setSpeciesResults([]);
-                        setSpeciesSearchError("");
-                        setShowSpeciesResults(false);
-                        clearError("speciesId");
+                        setCommonName(event.target.value);
+                        clearError("commonName");
                       }}
-                      maxLength={100}
-                      autoComplete="off"
-                      placeholder="ค้นหาชื่อมด เช่น Oecophylla smaragdina"
-                      aria-controls="species-search-results"
-                      aria-invalid={errors.speciesId ? true : undefined}
+                      placeholder="เช่น มดแดง"
+                      aria-invalid={errors.commonName ? true : undefined}
                     />
-                    {speciesQuery.trim().length > 0 && speciesQuery.trim().length < 3 && (
-                      <small className="field-hint">พิมพ์อย่างน้อย 3 ตัวอักษรเพื่อค้นหา</small>
+                    {errors.commonName && (
+                      <p className="field-error">{errors.commonName}</p>
                     )}
-                    {showSpeciesResults && speciesQuery.trim().length >= 3 && (
-                      <div id="species-search-results" className="species-search-results" role="listbox" aria-label="ผลค้นหาชนิดมดจาก GBIF">
-                        {speciesSearching && <p className="place-search-message" role="status">กำลังค้นหาชื่อวิทยาศาสตร์จาก GBIF…</p>}
-                        {!speciesSearching && speciesSearchError && <p className="place-search-message" role="status">{speciesSearchError}</p>}
-                        {!speciesSearching && !speciesSearchError && speciesResults.length === 0 && <p className="place-search-message">ไม่พบชื่อมด ลองค้นด้วยชื่อวิทยาศาสตร์</p>}
-                        {!speciesSearching && speciesResults.map((result) => (
-                          <button
-                            key={result.gbifKey}
-                            type="button"
-                            role="option"
-                            aria-selected="false"
-                            className="place-search-option"
-                            onClick={() => {
-                              setSelectedSpecies(result);
-                              setSpeciesQuery(result.canonicalName);
-                              setSpeciesResults([]);
-                              setShowSpeciesResults(false);
-                              clearError("speciesId");
-                            }}
-                          >
-                            <strong>{result.canonicalName}</strong>
-                            {result.authorship && <small>{result.authorship}</small>}
-                          </button>
-                        ))}
-                      </div>
+                  </div>
+                  <div className="field">
+                    <label htmlFor="field-scientificName">
+                      ชื่อวิทยาศาสตร์ (Scientific name)
+                    </label>
+                    <input
+                      id="field-scientificName"
+                      className="input"
+                      value={scientificName}
+                      maxLength={200}
+                      onChange={(event) => {
+                        setScientificName(event.target.value);
+                        clearError("scientificName");
+                      }}
+                      placeholder="เช่น Oecophylla smaragdina"
+                      aria-invalid={errors.scientificName ? true : undefined}
+                    />
+                    {errors.scientificName && (
+                      <p className="field-error">{errors.scientificName}</p>
                     )}
-                  </>
-                )}
-                {errors.speciesId && <p className="field-error">{errors.speciesId}</p>}
-                <p className="field-hint">ค้นหาเฉพาะวงศ์มด (Formicidae) จาก <a href="https://www.gbif.org/" target="_blank" rel="noreferrer">GBIF</a> หรือเว้นว่างไว้เพื่อจำแนกชนิดภายหลัง</p>
-              </div>
+                  </div>
+                  <div className="field">
+                    <label htmlFor="field-genus">สกุล (Genus)</label>
+                    <input
+                      id="field-genus"
+                      className="input"
+                      value={genus}
+                      maxLength={100}
+                      onChange={(event) => {
+                        setGenus(event.target.value);
+                        clearError("genus");
+                      }}
+                      placeholder="เช่น Oecophylla"
+                      aria-invalid={errors.genus ? true : undefined}
+                    />
+                    {errors.genus && (
+                      <p className="field-error">{errors.genus}</p>
+                    )}
+                  </div>
+                  <div className="field">
+                    <label htmlFor="field-subfamily">
+                      วงศ์ย่อย (Subfamily)
+                    </label>
+                    <input
+                      id="field-subfamily"
+                      className="input"
+                      value={subfamily}
+                      maxLength={100}
+                      onChange={(event) => {
+                        setSubfamily(event.target.value);
+                        clearError("subfamily");
+                      }}
+                      placeholder="เช่น Formicinae"
+                      aria-invalid={errors.subfamily ? true : undefined}
+                    />
+                    {errors.subfamily && (
+                      <p className="field-error">{errors.subfamily}</p>
+                    )}
+                  </div>
+                </div>
+                <p className="field-hint">
+                  เว้นว่างทั้ง 4 ช่องได้ หากยังไม่ทราบชนิดมด หากกรอกข้อมูล
+                  ให้กรอกครบทั้ง 4 ช่อง
+                </p>
+              </section>
 
               <div className="row row-3">
                 <div className="field">
@@ -623,7 +649,9 @@ export default function AntForm({ userId }: { userId: string }) {
                 />
                 {!methodId && (
                   <div className="field">
-                    <label htmlFor="field-methodOther">วิธีเก็บอื่น <span className="req">*</span></label>
+                    <label htmlFor="field-methodOther">
+                      วิธีเก็บอื่น <span className="req">*</span>
+                    </label>
                     <input
                       id="field-methodOther"
                       className="input"
@@ -693,39 +721,11 @@ export default function AntForm({ userId }: { userId: string }) {
             <section className="card" aria-labelledby="sec-location">
               <h2 id="sec-location">สถานที่และพิกัด</h2>
 
-              <div className="location-row">
-                <div className="grow">
-                  <SelectField
-                    id="locationId"
-                    label="สถานที่"
-                    value={locationId}
-                    onChange={(v) => {
-                      locationLookupRequest.current += 1;
-                      setLocationLookup("");
-                      setLocationId(v);
-                      clearError("locationId");
-                    }}
-                    options={locations.items}
-                    loading={locations.loading}
-                    loadError={locations.error}
-                    onRetry={locations.reload}
-                    error={errors.locationId}
-                    placeholder="เลือกสถานที่"
-                    required={false}
-                  />
-                </div>
-                <button
-                  type="button"
-                  className="btn btn-outline add-location-btn"
-                  onClick={() => setShowLocationModal(true)}
-                >
-                  + เพิ่มสถานที่ใหม่
-                </button>
-              </div>
-
               {!locationId && (
                 <div className="field">
-                  <label htmlFor="field-locationText">ชื่อสถานที่ <span className="req">*</span></label>
+                  <label htmlFor="field-locationText">
+                    ชื่อสถานที่ <span className="req">*</span>
+                  </label>
                   <input
                     id="field-locationText"
                     className="input"
@@ -742,7 +742,9 @@ export default function AntForm({ userId }: { userId: string }) {
                     aria-invalid={errors.locationText ? true : undefined}
                   />
                   {(errors.locationText || errors.locationId) && (
-                    <p className="field-error">{errors.locationText ?? errors.locationId}</p>
+                    <p className="field-error">
+                      {errors.locationText ?? errors.locationId}
+                    </p>
                   )}
                 </div>
               )}
@@ -756,20 +758,26 @@ export default function AntForm({ userId }: { userId: string }) {
                   onPlaceSelect={handlePlaceSelect}
                 />
                 {locationLookup && (
-                  <p className="map-location-result" role="status" aria-live="polite">
+                  <p
+                    className="map-location-result"
+                    role="status"
+                    aria-live="polite"
+                  >
                     {locationLookup}
                   </p>
                 )}
               </div>
 
-              <div className="field"><button
+              <div className="field">
+                <button
                   type="button"
                   className="btn btn-soft locate-btn"
                   onClick={useCurrentPosition}
                   disabled={locating}
                 >
                   {locating ? "กำลังค้นหา…" : "ใช้ตำแหน่งปัจจุบัน"}
-                </button></div>
+                </button>
+              </div>
             </section>
 
             <section className="card" aria-labelledby="sec-notes">

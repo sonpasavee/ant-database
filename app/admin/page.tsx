@@ -44,7 +44,6 @@ async function AdminDashboard() {
         amount: true,
         species: { select: { commonName: true, scientificName: true } },
         location: { select: { name: true, province: true } },
-        locationText: true,
         collectedBy: { select: { name: true, email: true } },
       },
     }),
@@ -68,7 +67,10 @@ async function AdminDashboard() {
               <h1>ภาพรวมระบบ</h1>
               <p>ติดตามข้อมูลสำรวจและจัดการรายการที่รอตรวจสอบ</p>
             </div>
-            <Link className="btn btn-primary" href="/admin/review">เปิดคิวตรวจสอบ</Link>
+            <div className="admin-dashboard-actions">
+              <Link className="btn btn-outline" href="/admin/records">จัดการข้อมูลทั้งหมด</Link>
+              <Link className="btn btn-primary" href="/admin/review">เปิดคิวตรวจสอบ</Link>
+            </div>
           </header>
 
           <section className="admin-stat-grid" aria-label="สรุปรายการข้อมูล">
@@ -107,7 +109,7 @@ async function AdminDashboard() {
                         <span className="admin-latest-primary">
                           <strong>{record.species?.commonName ?? "รอจำแนกชนิดมด"}</strong>
                           {record.species && <em>{record.species.scientificName}</em>}
-                          <small>{[record.collectedBy.name ?? record.collectedBy.email, record.location?.name ?? record.locationText, record.location?.province].filter(Boolean).join(" · ") || "ไม่ระบุสถานที่"}</small>
+                          <small>{[record.collectedBy.name ?? record.collectedBy.email, record.location?.name, record.location?.province].filter(Boolean).join(" · ") || "ไม่ระบุสถานที่"}</small>
                         </span>
                         <span className="admin-latest-meta">
                           <strong>{record.amount.toLocaleString("th-TH")} ตัว</strong>

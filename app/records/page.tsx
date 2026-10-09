@@ -8,6 +8,7 @@ import Footer from "../components/footer";
 import LoadingIndicator from "../components/loading-indicator";
 import Navbar from "../components/navbar";
 import ObservationCard from "../components/observation-card";
+import Pagination from "../components/pagination";
 import "./records.css";
 
 export const metadata: Metadata = { title: "ฐานข้อมูลชนิดมด · Ant Database" };
@@ -52,7 +53,6 @@ async function RecordsContent({
             { species: { commonName: { contains: q, mode: "insensitive" as const } } },
             { species: { scientificName: { contains: q, mode: "insensitive" as const } } },
             { species: { aliases: { some: { name: { contains: q, mode: "insensitive" as const } } } } },
-            { locationText: { contains: q, mode: "insensitive" as const } },
             { location: { name: { contains: q, mode: "insensitive" as const } } },
             { location: { province: { contains: q, mode: "insensitive" as const } } },
           ],
@@ -98,7 +98,7 @@ async function RecordsContent({
             {records.map((record) => <ObservationCard key={record.id} record={record} />)}
           </div>
         ) : <EmptyState query={q} />}
-        <Pagination page={page} totalPages={totalPages} pageHref={(next) => pageHref(next)} />
+        <Pagination page={page} totalPages={totalPages} totalItems={total} pageSize={PAGE_SIZE} hrefForPage={(next) => pageHref(next)} label="เปลี่ยนหน้ารายการที่ยังไม่จำแนก" />
       </PageFrame>
     );
   }
@@ -179,7 +179,7 @@ async function RecordsContent({
           <Link className="btn btn-outline" href={pageHref(1, true)}>ดูรายการ</Link>
         </section>
       )}
-      <Pagination page={page} totalPages={totalPages} pageHref={(next) => pageHref(next, false)} />
+      <Pagination page={page} totalPages={totalPages} totalItems={totalSpecies} pageSize={PAGE_SIZE} hrefForPage={(next) => pageHref(next, false)} label="เปลี่ยนหน้าชนิดมด" />
     </PageFrame>
   );
 }
@@ -203,17 +203,6 @@ function SearchForm({ q, unclassified = false }: { q: string; unclassified?: boo
       {unclassified && <input type="hidden" name="unclassified" value="1" />}
       <button className="btn btn-primary" type="submit">ค้นหา</button>
     </form>
-  );
-}
-
-function Pagination({ page, totalPages, pageHref }: { page: number; totalPages: number; pageHref: (page: number) => string }) {
-  if (totalPages <= 1) return null;
-  return (
-    <nav className="records-pagination" aria-label="เปลี่ยนหน้า">
-      {page > 1 ? <Link className="btn btn-outline" href={pageHref(page - 1)}>หน้าก่อน</Link> : <span />}
-      <span>หน้า {page} / {totalPages}</span>
-      {page < totalPages ? <Link className="btn btn-outline" href={pageHref(page + 1)}>หน้าถัดไป</Link> : <span />}
-    </nav>
   );
 }
 

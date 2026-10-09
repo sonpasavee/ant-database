@@ -1,0 +1,23 @@
+.admin-records-page { padding-top: 40px; padding-bottom: 64px; }
+.admin-records-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; margin-bottom: 22px; }
+.admin-records-heading h1 { margin-bottom: 6px; font-size: 34px; font-weight: 600; }
+.admin-records-heading p:last-child { color: var(--muted); }
+.admin-record-status-filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+.admin-record-status-filters a { padding: 7px 13px; border: 1px solid var(--line); border-radius: 999px; background: #fff; color: var(--ink); text-decoration: none; }
+.admin-record-status-filters a.is-active { border-color: var(--burgundy); background: var(--burgundy); color: #fff; }
+.admin-records-list { display: grid; gap: 12px; }
+.admin-record-row { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 18px; border: 1px solid var(--line); border-radius: var(--radius); background: #fff; }
+.admin-record-info { display: grid; gap: 4px; min-width: 0; color: var(--muted); font-size: 14px; }
+.admin-record-title { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; color: var(--ink); font-size: 17px; }
+.admin-record-status-badge { padding: 4px 10px; border-radius: 999px; background: var(--cream-dark); color: var(--muted); font-size: 12px; font-weight: 600; }
+.admin-record-status-badge.status-pending { background: #fff6d9; color: #745514; }
+.admin-record-status-badge.status-approved { background: #e9f4e8; color: #285c2b; }
+.admin-record-status-badge.status-rejected { background: #fff1f0; color: #9a2c32; }
+.admin-record-info em { color: var(--muted); }
+.admin-record-actions { display: flex; flex: 0 0 auto; flex-wrap: wrap; gap: 8px; }
+.admin-records-empty { padding: 48px 20px; border: 1px dashed var(--line); border-radius: var(--radius); background: #fff; text-align: center; }
+.admin-records-empty p { color: var(--muted); }
+@media (max-width: 680px) {
+  .admin-records-heading { align-items: stretch; flex-direction: column; }
+  .admin-record-row { align-items: stretch; flex-direction: column; gap: 14px; }
+}

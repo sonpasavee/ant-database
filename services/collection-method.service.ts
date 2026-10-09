@@ -1,6 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import { ApiError } from "@/lib/api-error";
 
+const DEFAULT_COLLECTION_METHODS = [
+  { name: "Hand collection", description: "Collect ants by hand or with forceps." },
+  { name: "Pitfall trap", description: "Collect ground-foraging ants with a pitfall trap." },
+  { name: "Baited trap", description: "Attract and collect ants using bait." },
+  { name: "Winkler extraction", description: "Extract ants from leaf litter with a Winkler apparatus." },
+];
+
 export async function getCollectionMethodList(
   page: number,
   limit: number,
@@ -17,7 +24,7 @@ export async function getCollectionMethodList(
 
   // These are independent read queries. Avoid opening a transaction through
   // the hosted database pooler for a list response.
-  const items = await prisma.collectionMethod.findMany({
+  let items = await prisma.collectionMethod.findMany({
     where,
     orderBy: {
       name: "asc",
@@ -25,7 +32,23 @@ export async function getCollectionMethodList(
     skip: (page - 1) * limit,
     take: limit,
   });
-  const total = await prisma.collectionMethod.count({ where });
+  let total = await prisma.collectionMethod.count({ where });
+
+  // The starter methods are also inserted by a migration, but seed them here
+  // when an existing database has an empty collection-method catalog.
+  if (!search && total === 0) {
+    await prisma.collectionMethod.createMany({
+      data: DEFAULT_COLLECTION_METHODS,
+      skipDuplicates: true,
+    });
+    items = await prisma.collectionMethod.findMany({
+      where,
+      orderBy: { name: "asc" },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+    total = await prisma.collectionMethod.count({ where });
+  }
 
   return {
     items,

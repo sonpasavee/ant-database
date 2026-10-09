@@ -2,6 +2,8 @@
 
 import Image from "next/image";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import SpeciesPicker from "./species-picker";
 import "./admin-review-queue.css";
 
 type ReviewRecord = {
@@ -10,21 +12,23 @@ type ReviewRecord = {
   collectedAt: Date;
   description: string | null;
   species: { id: number; commonName: string; scientificName: string } | null;
-  location: { name: string; province: string | null } | null;
-  locationText: string | null;
+  location: {
+    name: string;
+    province: string | null;
+    latitude: number | null;
+    longitude: number | null;
+  } | null;
   collectionMethod: { name: string } | null;
-  collectionMethodOther: string | null;
   collectedBy: { name: string | null; email: string | null };
   images: { id: number; url: string; caption: string | null }[];
 };
 
 export default function AdminReviewQueue({
   initialRecords,
-  speciesOptions,
 }: {
   initialRecords: ReviewRecord[];
-  speciesOptions: { id: number; commonName: string; scientificName: string }[];
 }) {
+  const router = useRouter();
   const [records, setRecords] = useState(initialRecords);
   const [busyId, setBusyId] = useState("");
   const [error, setError] = useState("");
@@ -45,6 +49,7 @@ export default function AdminReviewQueue({
       if (!response.ok) throw new Error(result?.message ?? "เปลี่ยนสถานะไม่สำเร็จ");
       setRecords((current) => current.filter((record) => record.id !== id));
       setNotice(status === "APPROVED" ? "อนุมัติและเผยแพร่ข้อมูลแล้ว" : "ส่งข้อมูลกลับพร้อมเหตุผลแล้ว");
+      router.refresh();
     } catch (updateError) {
       setError(updateError instanceof Error ? updateError.message : "เกิดข้อผิดพลาด กรุณาลองใหม่");
     } finally {
@@ -73,19 +78,29 @@ export default function AdminReviewQueue({
               </div>
               <dl>
                 <div><dt>จำนวน</dt><dd>{record.amount.toLocaleString("th-TH")} ตัว</dd></div>
-                <div><dt>สถานที่</dt><dd>{[record.location?.name ?? record.locationText, record.location?.province].filter(Boolean).join(", ")}</dd></div>
+                <div>
+                  <dt>สถานที่</dt>
+                  <dd>
+                    {[record.location?.name, record.location?.province].filter(Boolean).join(", ") || "ไม่ระบุสถานที่"}
+                    {record.location?.latitude != null && record.location.longitude != null && (
+                      <> · พิกัด {record.location.latitude.toFixed(6)}, {record.location.longitude.toFixed(6)}</>
+                    )}
+                  </dd>
+                </div>
                 <div><dt>วันที่เก็บ</dt><dd>{new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeStyle: "short" }).format(record.collectedAt)}</dd></div>
-                <div><dt>วิธีเก็บ</dt><dd>{record.collectionMethod?.name ?? record.collectionMethodOther}</dd></div>
+                <div><dt>วิธีเก็บ</dt><dd>{record.collectionMethod?.name ?? "ไม่ระบุวิธีเก็บ"}</dd></div>
                 <div><dt>ผู้บันทึก</dt><dd>{record.collectedBy.name ?? record.collectedBy.email ?? "ไม่ระบุชื่อ"}</dd></div>
               </dl>
               {record.description && <p className="admin-review-description">{record.description}</p>}
-              <label className="admin-review-species">
-                <span>{record.species ? "ระบุชนิดมดใหม่ (ถ้าต้องการ)" : "ระบุชนิดมดก่อนอนุมัติ"}</span>
-                <select className="input select" value={selectedSpecies[record.id] ?? (record.species ? String(record.species.id) : "")} onChange={(event) => setSelectedSpecies((current) => ({ ...current, [record.id]: event.target.value }))}>
-                  <option value="">{record.species ? "ใช้ชนิดมดเดิม" : "เลือกชนิดมด"}</option>
-                  {speciesOptions.map((species) => <option key={species.id} value={species.id}>{species.commonName} · {species.scientificName}</option>)}
-                </select>
-              </label>
+              <div className="admin-review-species">
+                <label htmlFor={`review-species-${record.id}`}>{record.species ? "ระบุชนิดมดใหม่ (ถ้าต้องการ)" : "ระบุชนิดมดก่อนอนุมัติ"}</label>
+                <SpeciesPicker
+                  id={`review-species-${record.id}`}
+                  value={selectedSpecies[record.id] ?? (record.species ? String(record.species.id) : "")}
+                  initialSpecies={record.species}
+                  onChange={(value) => setSelectedSpecies((current) => ({ ...current, [record.id]: value }))}
+                />
+              </div>
             </div>
           </div>
           <form

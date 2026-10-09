@@ -12,31 +12,38 @@ export const metadata: Metadata = { title: "แก้ไขข้อมูลม
 
 export default function EditMyRecordPage(props: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ returnTo?: string | string[] }>;
 }) {
   return <Suspense fallback={<LoadingIndicator label="กำลังโหลดข้อมูลมด..." />}><EditMyRecordContent {...props} /></Suspense>;
 }
 
 async function EditMyRecordContent({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ returnTo?: string | string[] }>;
 }) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
-  const { id } = await params;
+  const isAdmin = session.user.role === "ADMIN";
+  const [{ id }, query] = await Promise.all([params, searchParams]);
+  const returnToValue = Array.isArray(query.returnTo) ? query.returnTo[0] : query.returnTo;
+  const returnTo = isAdmin && returnToValue === "admin" ? "/admin/records" : "/my-records";
   const record = await prisma.antRecord.findUnique({
     where: { id },
-    include: { images: { orderBy: { sortOrder: "asc" } } },
+    include: { images: { orderBy: { sortOrder: "asc" } }, location: true, collectionMethod: true },
   });
 
   if (
     !record ||
-    record.collectedById !== session.user.id ||
-    (record.status !== "DRAFT" && record.status !== "REJECTED")
+    (!isAdmin &&
+      (record.collectedById !== session.user.id ||
+        (record.status !== "DRAFT" && record.status !== "REJECTED")))
   ) notFound();
 
   const [species, locations, methods] = await Promise.all([
-    prisma.antSpecies.findMany({ select: { id: true, commonName: true, scientificName: true }, orderBy: { commonName: "asc" } }),
+    record.speciesId ? prisma.antSpecies.findUnique({ where: { id: record.speciesId }, select: { id: true, commonName: true, scientificName: true } }) : Promise.resolve(null),
     prisma.location.findMany({ select: { id: true, name: true, province: true }, orderBy: { name: "asc" } }),
     prisma.collectionMethod.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
   ]);
@@ -51,11 +58,9 @@ async function EditMyRecordContent({
             speciesId: record.speciesId,
             amount: record.amount,
             locationId: record.locationId,
-            locationText: record.locationText ?? "",
-            latitude: record.latitude,
-            longitude: record.longitude,
+            locationText: record.location?.name ?? "",
             collectionMethodId: record.collectionMethodId,
-            collectionMethodOther: record.collectionMethodOther ?? "",
+            collectionMethodOther: record.collectionMethod?.name ?? "",
             collectedAt: record.collectedAt.toISOString(),
             description: record.description ?? "",
             status: record.status,
@@ -63,6 +68,8 @@ async function EditMyRecordContent({
           }}
           options={{ species, locations, methods }}
           userId={session.user.id}
+          isAdmin={isAdmin}
+          returnTo={returnTo}
         />
       </main>
       <Footer />

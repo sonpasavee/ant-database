@@ -1,5 +1,4 @@
 import Link from "next/link";
-import AntIcon from "../components/ant-icon";
 
 export default function AuthLayout({
   children,
@@ -9,7 +8,6 @@ export default function AuthLayout({
       <header className="auth-bar">
         <div className="container navbar-inner">
           <Link href="/" className="brand">
-            <AntIcon size={28} />
             Ant Database
           </Link>
           <Link href="/" className="back-link">
@@ -17,7 +15,24 @@ export default function AuthLayout({
           </Link>
         </div>
       </header>
-      <main className="auth-main">{children}</main>
+      <main className="auth-main">
+        <div className="auth-layout">
+          <section className="auth-intro" aria-labelledby="auth-intro-title">
+            <p className="auth-eyebrow">ANT DATABASE · FIELD OBSERVATIONS</p>
+            <h1 id="auth-intro-title">ข้อมูลมดภาคสนาม ที่ค้นหาและแบ่งปันได้</h1>
+            <p className="auth-intro-copy">
+              บันทึกการสำรวจพร้อมพิกัด ค้นหาชนิดมด และติดตามจุดที่พบจากแผนที่
+              ในฐานข้อมูลเดียว
+            </p>
+            <ul className="auth-highlights">
+              <li>จัดเก็บข้อมูลการสำรวจอย่างเป็นระบบ</li>
+              <li>ค้นหาชนิดและตำแหน่งที่พบได้สะดวก</li>
+              <li>ส่งข้อมูลให้ผู้ดูแลตรวจสอบก่อนเผยแพร่</li>
+            </ul>
+          </section>
+          <div className="auth-panel">{children}</div>
+        </div>
+      </main>
     </>
   );
 }

@@ -72,22 +72,15 @@ async function RecordDetailContent({
   // เจ้าของข้อมูล? (ต้องให้ session.user.id ตรงกับ id ของ User ใน Prisma)
   const session = await auth();
   const sessionUserId = (session?.user as { id?: string } | undefined)?.id;
-  const isOwner = Boolean(sessionUserId) && sessionUserId === record.collectedBy.id;
+  const isOwner =
+    Boolean(sessionUserId) && sessionUserId === record.collectedBy.id;
 
   const speciesName = record.species?.commonName ?? "ยังไม่จำแนกชนิด";
-  const locationName =
-    record.location?.name ?? record.locationText ?? "ไม่ระบุสถานที่";
+  const locationName = record.location?.name ?? "ไม่ระบุสถานที่";
   const province = record.location?.province ?? null;
-  const methodName =
-    record.collectionMethod?.name ?? record.collectionMethodOther ?? "ไม่ระบุ";
-  // A record can store its own collection coordinates, while older records
-  // may only have coordinates on the linked reference location.
-  const recordCoords =
-    record.latitude != null && record.longitude != null
-      ? { lat: Number(record.latitude), lng: Number(record.longitude) }
-      : null;
+  const methodName = record.collectionMethod?.name ?? "ไม่ระบุวิธีเก็บ";
   const locationCoords =
-    record.location?.latitude != null && record.location.longitude != null
+    record.location?.latitude != null && record.location?.longitude != null
       ? {
           lat: Number(record.location.latitude),
           lng: Number(record.location.longitude),
@@ -101,11 +94,7 @@ async function RecordDetailContent({
     coords.lat <= 90 &&
     coords.lng >= -180 &&
     coords.lng <= 180;
-  const coords = isValidCoords(recordCoords)
-    ? recordCoords
-    : isValidCoords(locationCoords)
-      ? locationCoords
-      : null;
+  const coords = isValidCoords(locationCoords) ? locationCoords : null;
   const collector = record.collectedBy.name ?? "ไม่ระบุชื่อ";
 
   const rows: { label: string; value: React.ReactNode }[] = [
@@ -118,7 +107,10 @@ async function RecordDetailContent({
           },
         ]
       : []),
-    { label: "จำนวนที่เก็บได้", value: `${record.amount.toLocaleString("th-TH")} ตัว` },
+    {
+      label: "จำนวนที่เก็บได้",
+      value: `${record.amount.toLocaleString("th-TH")} ตัว`,
+    },
     {
       label: "วันที่เก็บ",
       value: `${dateFmt.format(record.collectedAt)} · ${timeFmt.format(record.collectedAt)} น.`,
@@ -164,7 +156,10 @@ async function RecordDetailContent({
               </span>
             </div>
             <div className="rd-owner-actions">
-              <Link href={`/records/${record.id}/edit`} className="btn btn-outline">
+              <Link
+                href={`/records/${record.id}/edit`}
+                className="btn btn-outline"
+              >
                 แก้ไข
               </Link>
               <button type="button" className="rd-btn-ghost" disabled>
@@ -188,7 +183,9 @@ async function RecordDetailContent({
           <header className="rd-heading">
             <div>
               <h1>{speciesName}</h1>
-              {record.species && <p className="rd-sci-lg">{record.species.scientificName}</p>}
+              {record.species && (
+                <p className="rd-sci-lg">{record.species.scientificName}</p>
+              )}
             </div>
             <span className="rd-count">
               {record.amount.toLocaleString("th-TH")} ตัว
@@ -242,18 +239,22 @@ async function RecordDetailContent({
                 <h2 id="rd-map-title">ตำแหน่งที่เก็บ</h2>
                 {coords ? (
                   <>
-                    <RecordMap lat={coords.lat} lng={coords.lng} label={locationName} />
+                    <RecordMap
+                      lat={coords.lat}
+                      lng={coords.lng}
+                      label={locationName}
+                    />
                     <div className="rd-map-foot">
                       <span className="rd-coords">
                         {coords.lat.toFixed(4)}, {coords.lng.toFixed(4)}
                       </span>
                       <a
                         className="rd-link"
-                        href={`https://www.openstreetmap.org/?mlat=${coords.lat}&mlon=${coords.lng}#map=15/${coords.lat}/${coords.lng}`}
+                        href={`https://www.google.com/maps?q=${coords.lat},${coords.lng}`}
                         target="_blank"
-                        rel="noreferrer"
+                        rel="noopener noreferrer"
                       >
-                        เปิดแผนที่ใหญ่ ↗
+                        เปิด Google Maps ↗
                       </a>
                     </div>
                   </>

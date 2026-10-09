@@ -13,7 +13,7 @@ const globalForPrisma = globalThis as unknown as {
 
 // Prisma Client instances survive Next.js HMR through globalThis. Recreate the
 // instance when the generated schema changes so dev keeps the current model.
-const prismaClientRevision = "2026-10-ant-species-aliases-v1";
+const prismaClientRevision = "2026-10-location-coordinates-v2";
 const adapter = new PrismaPg({ connectionString, max: 1 });
 const hasCurrentClient =
   globalForPrisma.prisma &&

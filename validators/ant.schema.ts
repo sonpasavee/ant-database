@@ -17,15 +17,15 @@ export const createAntSchema = z.object({
 
   locationId: z.number().int().positive().nullable().optional(),
 
-  locationText: z.string().trim().max(300).optional(),
+  locationName: z.string().trim().min(1).max(300).optional(),
 
-  latitude: z.number().min(-90).max(90).optional(),
+  locationLatitude: z.number().min(-90).max(90).optional(),
 
-  longitude: z.number().min(-180).max(180).optional(),
+  locationLongitude: z.number().min(-180).max(180).optional(),
 
   collectionMethodId: z.number().int().positive().nullable().optional(),
 
-  collectionMethodOther: z.string().trim().max(200).optional(),
+  collectionMethodName: z.string().trim().min(1).max(200).optional(),
 
   collectedAt: z.string().datetime(),
 
@@ -35,14 +35,14 @@ export const createAntSchema = z.object({
 
   draft: z.boolean().optional().default(false),
 }).superRefine((data, context) => {
-  if (!data.locationId && !data.locationText) {
-    context.addIssue({ code: "custom", path: ["locationText"], message: "ระบุสถานที่หรือเลือกจากรายการ" });
+  if (!data.locationId && !data.locationName) {
+    context.addIssue({ code: "custom", path: ["locationName"], message: "ระบุสถานที่หรือเลือกจากรายการ" });
   }
-  if (!data.collectionMethodId && !data.collectionMethodOther) {
-    context.addIssue({ code: "custom", path: ["collectionMethodOther"], message: "เลือกหรือระบุวิธีเก็บ" });
+  if (!data.collectionMethodId && !data.collectionMethodName) {
+    context.addIssue({ code: "custom", path: ["collectionMethodName"], message: "เลือกหรือระบุวิธีเก็บ" });
   }
-  if ((data.latitude === undefined) !== (data.longitude === undefined)) {
-    context.addIssue({ code: "custom", path: ["latitude"], message: "กรุณาระบุพิกัดให้ครบทั้งสองค่า" });
+  if ((data.locationLatitude === undefined) !== (data.locationLongitude === undefined)) {
+    context.addIssue({ code: "custom", path: ["locationLatitude"], message: "กรุณาระบุพิกัดให้ครบทั้งสองค่า" });
   }
 });
 
@@ -53,15 +53,15 @@ export const updateAntSchema = z.object({
 
   locationId: z.number().int().positive().nullable().optional(),
 
-  locationText: z.string().trim().max(300).nullable().optional(),
+  locationName: z.string().trim().min(1).max(300).optional(),
 
-  latitude: z.number().min(-90).max(90).nullable().optional(),
+  locationLatitude: z.number().min(-90).max(90).nullable().optional(),
 
-  longitude: z.number().min(-180).max(180).nullable().optional(),
+  locationLongitude: z.number().min(-180).max(180).nullable().optional(),
 
   collectionMethodId: z.number().int().positive().nullable().optional(),
 
-  collectionMethodOther: z.string().trim().max(200).nullable().optional(),
+  collectionMethodName: z.string().trim().min(1).max(200).optional(),
 
   collectedAt: z.string().datetime().optional(),
 
@@ -69,10 +69,22 @@ export const updateAntSchema = z.object({
 
   images: z.array(antImageSchema).max(5).optional(),
 }).superRefine((data, context) => {
-  const hasLatitude = data.latitude !== undefined;
-  const hasLongitude = data.longitude !== undefined;
-  if (hasLatitude !== hasLongitude || (hasLatitude && hasLongitude && (data.latitude === null) !== (data.longitude === null))) {
-    context.addIssue({ code: "custom", path: ["latitude"], message: "กรุณาระบุพิกัดให้ครบทั้งสองค่า" });
+  if (data.locationId === null && !data.locationName) {
+    context.addIssue({ code: "custom", path: ["locationName"], message: "ระบุสถานที่ใหม่ก่อนบันทึก" });
+  }
+  if (data.collectionMethodId === null && !data.collectionMethodName) {
+    context.addIssue({ code: "custom", path: ["collectionMethodName"], message: "ระบุวิธีเก็บใหม่ก่อนบันทึก" });
+  }
+  if (data.locationId !== undefined && data.locationId !== null && data.locationName) {
+    context.addIssue({ code: "custom", path: ["locationName"], message: "เลือกสถานที่หรือพิมพ์ชื่อใหม่อย่างใดอย่างหนึ่ง" });
+  }
+  if (data.collectionMethodId !== undefined && data.collectionMethodId !== null && data.collectionMethodName) {
+    context.addIssue({ code: "custom", path: ["collectionMethodName"], message: "เลือกวิธีเก็บหรือพิมพ์ชื่อใหม่อย่างใดอย่างหนึ่ง" });
+  }
+  const hasLatitude = data.locationLatitude !== undefined;
+  const hasLongitude = data.locationLongitude !== undefined;
+  if (hasLatitude !== hasLongitude || (hasLatitude && hasLongitude && (data.locationLatitude === null) !== (data.locationLongitude === null))) {
+    context.addIssue({ code: "custom", path: ["locationLatitude"], message: "กรุณาระบุพิกัดให้ครบทั้งสองค่า" });
   }
 });
 

@@ -1,5 +1,6 @@
 .admin-review-page { padding-top: 40px; padding-bottom: 64px; }
 .admin-review-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; margin-bottom: 28px; }
+.admin-review-heading-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .admin-review-heading h1 { font-size: 32px; font-weight: 600; }
 .admin-review-heading p:last-child { color: var(--muted); }
 .admin-review-list { display: grid; gap: 20px; }
@@ -26,6 +27,7 @@
 .admin-review-empty p { color: var(--muted); }
 @media (max-width: 760px) {
  .admin-review-heading, .admin-review-actions { align-items: stretch; flex-direction: column; }
+ .admin-review-heading-actions { flex-direction: column; }
  .admin-review-main { grid-template-columns: 1fr; }
  .admin-review-photos { grid-template-columns: repeat(3, minmax(0, 1fr)); }
  .admin-review-buttons { flex-direction: column-reverse; }

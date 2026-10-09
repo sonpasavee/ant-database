@@ -89,6 +89,8 @@ export type Option = {
   /** id ตามที่ API ใช้จริง (number หรือ string) ส่งกลับไปตามเดิมได้เลย */
   id: string | number;
   label: string;
+  latitude?: number | null;
+  longitude?: number | null;
 };
 
 export type ListKind = "species" | "location" | "method";
@@ -112,7 +114,12 @@ function toOption(kind: ListKind, raw: Raw): Option {
     const province = pickStr(raw, ["province", "provinceName"]);
     const text =
       province && !name.includes(province) ? `${name} จ.${province}` : name;
-    return { id, label: text };
+    return {
+      id,
+      label: text,
+      latitude: typeof raw.latitude === "number" ? raw.latitude : null,
+      longitude: typeof raw.longitude === "number" ? raw.longitude : null,
+    };
   }
 
   // method
@@ -127,27 +134,15 @@ export const listSpecies = async () =>
     toOption("species", r),
   );
 
-export type GbifSpeciesResult = {
-  gbifKey: number;
+export async function saveAntSpecies(input: {
+  commonName: string;
   scientificName: string;
-  canonicalName: string;
-  authorship: string;
-  genus: string | null;
-  family: string;
-};
-
-export async function searchGbifSpecies(query: string, signal?: AbortSignal) {
-  const result = await request<{ results: GbifSpeciesResult[] }>(
-    `/api/species/search?q=${encodeURIComponent(query)}`,
-    { signal },
-  );
-  return result.results;
-}
-
-export async function resolveGbifSpecies(gbifKey: number) {
-  return request<{ id: number; commonName: string; scientificName: string }>(
+  genus: string;
+  subfamily: string;
+}) {
+  return request<{ id: number; commonName: string; scientificName: string; genus: string; subfamily: string }>(
     "/api/species/resolve",
-    { method: "POST", body: JSON.stringify({ gbifKey }) },
+    { method: "POST", body: JSON.stringify(input) },
   );
 }
 
@@ -189,11 +184,11 @@ export type AntStatus = (typeof ANT_STATUS)[keyof typeof ANT_STATUS];
 export type CreateAntInput = {
   speciesId: number | null;
   locationId: number | null;
-  locationText?: string;
-  latitude?: number;
-  longitude?: number;
+  locationName?: string;
+  locationLatitude?: number;
+  locationLongitude?: number;
   collectionMethodId: number | null;
-  collectionMethodOther?: string;
+  collectionMethodName?: string;
   amount: number;
   /** ISO 8601 เช่น 2026-03-14T01:30:00.000Z */
   collectedAt: string;

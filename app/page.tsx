@@ -66,13 +66,13 @@ export default async function HomePage() {
     count: record.amount,
     commonName: record.species?.commonName ?? "ยังไม่จำแนกชนิด",
     scientificName: record.species?.scientificName ?? "",
-    location: [record.location?.name ?? record.locationText, record.location?.province]
+    location: [record.location?.name, record.location?.province]
       .filter(Boolean)
-      .join(", "),
+      .join(", ") || "ไม่ระบุสถานที่",
     collectedAt: new Intl.DateTimeFormat("th-TH", {
       dateStyle: "medium",
     }).format(record.collectedAt),
-    method: record.collectionMethod?.name ?? record.collectionMethodOther ?? "ไม่ระบุวิธีเก็บ",
+    method: record.collectionMethod?.name ?? "ไม่ระบุวิธีเก็บ",
     author: record.collectedBy.name ?? "ไม่ระบุชื่อ",
     imageUrl: record.images[0]?.url ?? null,
   }));

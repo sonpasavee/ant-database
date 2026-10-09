@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { ApiError } from "@/lib/api-error";
 import { assertValidTransition } from "@/lib/ant-state-machine";
+import type { Prisma } from "@/app/generated/prisma/client";
 
 type ListOptions = {
   page: number;
@@ -29,6 +30,99 @@ const includeRelations = {
     },
   },
 };
+
+const referenceTransactionOptions = {
+  maxWait: 10_000,
+  timeout: 15_000,
+};
+
+async function resolveLocation(
+  tx: Prisma.TransactionClient,
+  name: string,
+  coordinates?: { latitude?: number | null; longitude?: number | null },
+) {
+  const normalizedName = name.trim();
+  if (!normalizedName) {
+    throw new ApiError(400, "LOCATION_REQUIRED", "Location name is required");
+  }
+  const lockKey = `location:${normalizedName.toLocaleLowerCase("en")}`;
+  await tx.$queryRaw<{ acquired: boolean }[]>`
+    SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0)) IS NULL AS acquired
+  `;
+  const matchingLocations = await tx.location.findMany({
+    where: { name: { equals: normalizedName, mode: "insensitive" }, province: null },
+    orderBy: { id: "asc" },
+  });
+  if (!coordinates) {
+    return matchingLocations[0] ?? tx.location.create({ data: { name: normalizedName } });
+  }
+
+  const existing = matchingLocations.find((location) =>
+    location.latitude === coordinates.latitude && location.longitude === coordinates.longitude,
+  );
+  if (existing) return existing;
+
+  const unlocated = matchingLocations.find(
+    (location) => location.latitude === null && location.longitude === null,
+  );
+  if (unlocated) {
+    return tx.location.update({
+      where: { id: unlocated.id },
+      data: coordinates,
+    });
+  }
+
+  return tx.location.create({ data: { name: normalizedName, ...coordinates } });
+}
+
+async function persistSelectedLocationCoordinates(
+  tx: Prisma.TransactionClient,
+  locationId: number,
+  coordinates: { latitude?: number | null; longitude?: number | null },
+) {
+  if (coordinates.latitude === undefined && coordinates.longitude === undefined) return;
+
+  const location = await tx.location.findUnique({ where: { id: locationId } });
+  if (!location) {
+    throw new ApiError(400, "LOCATION_NOT_FOUND", "Location does not exist");
+  }
+
+  const latitude = coordinates.latitude ?? null;
+  const longitude = coordinates.longitude ?? null;
+  if (
+    location.latitude !== null &&
+    location.longitude !== null &&
+    (location.latitude !== latitude || location.longitude !== longitude)
+  ) {
+    throw new ApiError(
+      409,
+      "LOCATION_COORDINATES_CONFLICT",
+      "The selected location coordinates changed. Refresh the location list and try again.",
+    );
+  }
+
+  if (location.latitude === latitude && location.longitude === longitude) return;
+  await tx.location.update({
+    where: { id: locationId },
+    data: { latitude, longitude },
+  });
+}
+
+async function resolveCollectionMethod(tx: Prisma.TransactionClient, name: string) {
+  const normalizedName = name.trim();
+  if (!normalizedName) {
+    throw new ApiError(400, "COLLECTION_METHOD_REQUIRED", "Collection method name is required");
+  }
+  const lockKey = `collection-method:${normalizedName.toLocaleLowerCase("en")}`;
+  await tx.$queryRaw<{ acquired: boolean }[]>`
+    SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0)) IS NULL AS acquired
+  `;
+  const existing = await tx.collectionMethod.findFirst({
+    where: { name: { equals: normalizedName, mode: "insensitive" } },
+    orderBy: { id: "asc" },
+  });
+  return existing ?? tx.collectionMethod.create({ data: { name: normalizedName } });
+}
 
 export async function getAntList(options: ListOptions) {
   const { page, limit, search, speciesId, locationId, status, userId, isAdmin } = options;
@@ -98,46 +192,34 @@ export async function getAntById(id: string) {
   return record;
 }
 
-async function ensureReferencesExist(data: {
+async function ensureReferencesExist(
+  data: {
   speciesId?: number | null;
   locationId?: number | null;
   collectionMethodId?: number | null;
-}) {
+  },
+) {
   const [species, location, method] = await Promise.all([
-    data.speciesId
-      ? prisma.antSpecies.findUnique({
-      where: {
-        id: data.speciesId,
-      },
-      })
-      : Promise.resolve(true),
-
-    data.locationId
-      ? prisma.location.findUnique({
-      where: {
-        id: data.locationId,
-      },
-      })
-      : Promise.resolve(true),
-
-    data.collectionMethodId
-      ? prisma.collectionMethod.findUnique({
-      where: {
-        id: data.collectionMethodId,
-      },
-      })
-      : Promise.resolve(true),
+    data.speciesId != null
+      ? prisma.antSpecies.findUnique({ where: { id: data.speciesId } })
+      : Promise.resolve(null),
+    data.locationId != null
+      ? prisma.location.findUnique({ where: { id: data.locationId } })
+      : Promise.resolve(null),
+    data.collectionMethodId != null
+      ? prisma.collectionMethod.findUnique({ where: { id: data.collectionMethodId } })
+      : Promise.resolve(null),
   ]);
 
-  if (data.speciesId && !species) {
+  if (data.speciesId != null && !species) {
     throw new ApiError(400, "SPECIES_NOT_FOUND", "Species does not exist");
   }
 
-  if (data.locationId && !location) {
+  if (data.locationId != null && !location) {
     throw new ApiError(400, "LOCATION_NOT_FOUND", "Location does not exist");
   }
 
-  if (data.collectionMethodId && !method) {
+  if (data.collectionMethodId != null && !method) {
     throw new ApiError(
       400,
       "COLLECTION_METHOD_NOT_FOUND",
@@ -150,11 +232,11 @@ export async function createAnt(data: {
   speciesId?: number | null;
   amount: number;
   locationId?: number | null;
-  locationText?: string;
-  latitude?: number;
-  longitude?: number;
+  locationName?: string;
+  locationLatitude?: number;
+  locationLongitude?: number;
   collectionMethodId?: number | null;
-  collectionMethodOther?: string;
+  collectionMethodName?: string;
   collectedAt: Date;
   description?: string;
   collectedById: string;
@@ -166,28 +248,51 @@ export async function createAnt(data: {
     sortOrder: number;
   }[];
 }) {
-  await ensureReferencesExist(data);
-
-  return prisma.antRecord.create({
-    data: {
-      speciesId: data.speciesId,
-      amount: data.amount,
-      locationId: data.locationId,
-      locationText: data.locationText,
-      latitude: data.latitude,
-      longitude: data.longitude,
-      collectionMethodId: data.collectionMethodId,
-      collectionMethodOther: data.collectionMethodOther,
-      collectedAt: data.collectedAt,
-      description: data.description,
-      collectedById: data.collectedById,
-      status: data.status,
-      images: data.images?.length
-        ? { create: data.images }
-        : undefined,
-    },
-    include: includeRelations,
+  await ensureReferencesExist({
+    speciesId: data.speciesId,
+    locationId: data.locationId,
+    collectionMethodId: data.collectionMethodId,
   });
+
+  return prisma.$transaction(async (tx) => {
+    const coordinates = data.locationLatitude !== undefined && data.locationLongitude !== undefined
+      ? { latitude: data.locationLatitude, longitude: data.locationLongitude }
+      : undefined;
+    const location = data.locationId != null
+      ? { id: data.locationId }
+      : data.locationName !== undefined
+        ? await resolveLocation(tx, data.locationName, coordinates)
+        : null;
+    const method = data.collectionMethodId != null
+      ? { id: data.collectionMethodId }
+      : data.collectionMethodName !== undefined ? await resolveCollectionMethod(tx, data.collectionMethodName) : null;
+    if (!location || !method) {
+      throw new ApiError(400, "LOCATION_AND_METHOD_REQUIRED", "Location and collection method are required");
+    }
+
+    if (data.locationId != null && coordinates) {
+      await persistSelectedLocationCoordinates(tx, location.id, coordinates);
+    }
+
+    const createData: Prisma.AntRecordCreateInput = {
+      amount: data.amount,
+      collectedAt: data.collectedAt,
+      status: data.status,
+      ...(data.description !== undefined ? { description: data.description } : {}),
+      ...(data.speciesId != null
+        ? { species: { connect: { id: data.speciesId } } }
+        : {}),
+      location: { connect: { id: location.id } },
+      collectionMethod: { connect: { id: method.id } },
+      collectedBy: { connect: { id: data.collectedById } },
+      ...(data.images?.length ? { images: { create: data.images } } : {}),
+    };
+
+    return tx.antRecord.create({
+      data: createData,
+      include: includeRelations,
+    });
+  }, referenceTransactionOptions);
 }
 
 export async function updateAnt(
@@ -196,11 +301,11 @@ export async function updateAnt(
     speciesId?: number | null;
     amount?: number;
     locationId?: number | null;
-    locationText?: string | null;
-    latitude?: number | null;
-    longitude?: number | null;
+    locationName?: string;
+    locationLatitude?: number | null;
+    locationLongitude?: number | null;
     collectionMethodId?: number | null;
-    collectionMethodOther?: string | null;
+    collectionMethodName?: string;
     collectedAt?: Date;
     description?: string;
     images?: {
@@ -212,42 +317,94 @@ export async function updateAnt(
   },
 ) {
   const existing = await getAntById(id);
+  const {
+    speciesId,
+    locationId: requestedLocationId,
+    locationName,
+    locationLatitude,
+    locationLongitude,
+    collectionMethodId: requestedMethodId,
+    collectionMethodName,
+    images,
+    ...recordFields
+  } = data;
 
-  if (
-    data.speciesId !== undefined ||
-    data.locationId !== undefined ||
-    data.collectionMethodId !== undefined
-  ) {
-    await ensureReferencesExist({
-      speciesId: data.speciesId ?? existing.speciesId,
+  await ensureReferencesExist({
+    speciesId,
+    locationId: requestedLocationId,
+    collectionMethodId: requestedMethodId,
+  });
 
-      locationId: data.locationId ?? existing.locationId,
+  const updated = await prisma.$transaction(async (tx) => {
+    const coordinates = locationLatitude !== undefined && locationLongitude !== undefined
+      ? { latitude: locationLatitude, longitude: locationLongitude }
+      : undefined;
+    const locationId = requestedLocationId === null && locationName === undefined
+      ? null
+      : locationName !== undefined
+        ? (await resolveLocation(tx, locationName, coordinates ?? undefined)).id
+        : requestedLocationId ?? existing.locationId;
+    const collectionMethodId =
+      requestedMethodId === null && collectionMethodName === undefined
+        ? null
+        : collectionMethodName !== undefined
+          ? (await resolveCollectionMethod(tx, collectionMethodName)).id
+          : requestedMethodId ?? existing.collectionMethodId;
 
-      collectionMethodId:
-        data.collectionMethodId ?? existing.collectionMethodId,
-    });
-  }
+    if (requestedLocationId === null && locationName === undefined) {
+      throw new ApiError(400, "LOCATION_REQUIRED", "Select or provide a location");
+    }
+    if (requestedMethodId === null && collectionMethodName === undefined) {
+      throw new ApiError(400, "COLLECTION_METHOD_REQUIRED", "Select or provide a collection method");
+    }
 
-  const { images, ...recordData } = data;
+    if (requestedLocationId !== undefined && requestedLocationId !== null && coordinates) {
+      await persistSelectedLocationCoordinates(tx, requestedLocationId, coordinates);
+    }
 
-  const updated = await prisma.antRecord.update({
-    where: { id },
-    data: {
-      ...recordData,
+    const updateData: Prisma.AntRecordUpdateInput = {
+      ...recordFields,
+      ...(speciesId !== undefined
+        ? speciesId === null
+          ? { species: { disconnect: true } }
+          : { species: { connect: { id: speciesId } } }
+        : {}),
+      ...(requestedLocationId !== undefined || locationName !== undefined
+        ? locationId === null
+          ? { location: { disconnect: true } }
+          : { location: { connect: { id: locationId } } }
+        : {}),
+      ...(requestedMethodId !== undefined || collectionMethodName !== undefined
+        ? collectionMethodId === null
+          ? { collectionMethod: { disconnect: true } }
+          : { collectionMethod: { connect: { id: collectionMethodId } } }
+        : {}),
       ...(images !== undefined
         ? { images: { deleteMany: {}, create: images } }
         : {}),
-    },
-    include: includeRelations,
-  });
+    };
 
-  if (images !== undefined) {
-    const retainedPublicIds = new Set(images.map((image) => image.publicId));
-    const removedPublicIds = existing.images
-      .map((image) => image.publicId)
-      .filter((publicId) => !retainedPublicIds.has(publicId));
-    await deleteOwnedCloudinaryImages(existing.collectedById, removedPublicIds);
-  }
+    if (images !== undefined) {
+      const currentImages = await tx.antImage.findMany({
+        where: { antRecordId: id },
+        select: { publicId: true },
+      });
+      const retainedPublicIds = new Set(images.map((image) => image.publicId));
+      await enqueueCloudinaryImageCleanup(
+        tx,
+        existing.collectedById,
+        currentImages
+          .map((image) => image.publicId)
+          .filter((publicId) => !retainedPublicIds.has(publicId)),
+      );
+    }
+
+    return tx.antRecord.update({
+      where: { id },
+      data: updateData,
+      include: includeRelations,
+    });
+  }, referenceTransactionOptions);
 
   return updated;
 }
@@ -255,40 +412,34 @@ export async function updateAnt(
 export async function deleteAnt(id: string) {
   const existing = await getAntById(id);
 
-  await prisma.antRecord.delete({
-    where: { id },
+  await prisma.$transaction(async (tx) => {
+    const images = await tx.antImage.findMany({
+      where: { antRecordId: id },
+      select: { publicId: true },
+    });
+    await enqueueCloudinaryImageCleanup(
+      tx,
+      existing.collectedById,
+      images.map((image) => image.publicId),
+    );
+    await tx.antRecord.delete({ where: { id } });
   });
-
-  await deleteOwnedCloudinaryImages(
-    existing.collectedById,
-    existing.images.map((image) => image.publicId),
-  );
 }
 
-async function deleteOwnedCloudinaryImages(userId: string, publicIds: string[]) {
-  const ownedPublicIds = publicIds.filter((publicId) =>
+async function enqueueCloudinaryImageCleanup(
+  tx: Prisma.TransactionClient,
+  userId: string,
+  publicIds: string[],
+) {
+  const ownedPublicIds = [...new Set(publicIds)].filter((publicId) =>
     publicId.startsWith(`ant-database/${userId}/`),
   );
   if (ownedPublicIds.length === 0) return;
 
-  try {
-    const { v2: cloudinary } = await import("cloudinary");
-    cloudinary.config({
-      cloud_name: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
-      api_key: process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY,
-      api_secret: process.env.CLOUDINARY_API_SECRET,
-    });
-
-    const results = await Promise.allSettled(
-      ownedPublicIds.map((publicId) => cloudinary.uploader.destroy(publicId, { resource_type: "image" })),
-    );
-    const failures = results.filter((result) => result.status === "rejected");
-    if (failures.length > 0) {
-      console.error(`Cloudinary cleanup failed for ${failures.length} ant image(s)`);
-    }
-  } catch {
-    console.error(`Cloudinary cleanup failed for ${ownedPublicIds.length} ant image(s)`);
-  }
+  await tx.cloudinaryCleanupJob.createMany({
+    data: ownedPublicIds.map((publicId) => ({ publicId })),
+    skipDuplicates: true,
+  });
 }
 
 export async function updateAntStatus(
@@ -308,7 +459,9 @@ export async function updateAntStatus(
 
   assertValidTransition(existing.status, status);
 
-  if (speciesId !== undefined) await ensureReferencesExist({ speciesId });
+  if (speciesId !== undefined) {
+    await ensureReferencesExist({ speciesId });
+  }
   if (status === "APPROVED" && (speciesId ?? existing.speciesId) === null) {
     throw new ApiError(
       400,
@@ -325,17 +478,19 @@ export async function updateAntStatus(
     );
   }
 
-  const updateResult = await prisma.antRecord.updateMany({
-    where: {
-      id,
-      status: existing.status,
-    },
-    data: {
-      status,
-      ...(speciesId !== undefined ? { speciesId } : {}),
-      rejectionReason: status === "REJECTED" ? rejectionReason : null,
-    },
-  });
+  const updateResult = await prisma.$transaction(async (tx) => {
+    return tx.antRecord.updateMany({
+      where: {
+        id,
+        status: existing.status,
+      },
+      data: {
+        status,
+        ...(speciesId !== undefined ? { speciesId } : {}),
+        rejectionReason: status === "REJECTED" ? rejectionReason : null,
+      },
+    });
+  }, referenceTransactionOptions);
 
   if (updateResult.count !== 1) {
     const current = await prisma.antRecord.findUnique({

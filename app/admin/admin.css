@@ -2,6 +2,7 @@
 .admin-dashboard-heading,
 .admin-section-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; }
 .admin-dashboard-heading { margin-bottom: 28px; }
+.admin-dashboard-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 .admin-dashboard-heading h1 { margin-bottom: 6px; font-size: 34px; font-weight: 600; }
 .admin-dashboard-heading > div > p:last-child,
 .admin-section-heading p,

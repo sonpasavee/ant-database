@@ -9,7 +9,9 @@ import AntIcon from "../components/ant-icon";
 import Footer from "../components/footer";
 import Navbar from "../components/navbar";
 import ResubmitRecordButton from "../components/resubmit-record-button";
+import DeleteAntRecordButton from "../components/delete-ant-record-button";
 import LoadingIndicator from "../components/loading-indicator";
+import Pagination from "../components/pagination";
 import "./my-records.css";
 
 export const metadata: Metadata = { title: "ข้อมูลของฉัน · Ant Database" };
@@ -50,6 +52,7 @@ async function MyRecordsContent({
   });
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const page = Math.min(safeRequestedPage, totalPages);
+  const isAdmin = session.user.role === "ADMIN";
 
   const records = await prisma.antRecord.findMany({
     where: { collectedById: session.user.id },
@@ -71,6 +74,11 @@ async function MyRecordsContent({
       : savedParam === "submit"
         ? "บันทึกข้อมูลเรียบร้อยแล้ว"
         : null;
+  const pageHref = (nextPage: number) => {
+    const search = new URLSearchParams({ page: String(nextPage) });
+    if (savedParam === "draft" || savedParam === "submit") search.set("saved", savedParam);
+    return `/my-records?${search}`;
+  };
 
   return (
     <>
@@ -128,9 +136,9 @@ async function MyRecordsContent({
                         <div>
                           <dt>สถานที่</dt>
                           <dd>
-                            {[record.location?.name ?? record.locationText, record.location?.province]
+                            {[record.location?.name, record.location?.province]
                               .filter(Boolean)
-                              .join(", ")}
+                              .join(", ") || "ไม่ระบุสถานที่"}
                           </dd>
                         </div>
                         <div>
@@ -143,7 +151,7 @@ async function MyRecordsContent({
                         </div>
                         <div>
                           <dt>วิธีเก็บ</dt>
-                          <dd>{record.collectionMethod?.name ?? record.collectionMethodOther ?? "ไม่ระบุ"}</dd>
+                          <dd>{record.collectionMethod?.name ?? "ไม่ระบุวิธีเก็บ"}</dd>
                         </div>
                       </dl>
                       {record.status === "REJECTED" && record.rejectionReason && (
@@ -151,12 +159,17 @@ async function MyRecordsContent({
                           เหตุผลที่ต้องแก้ไข: {record.rejectionReason}
                         </p>
                       )}
-                      {(record.status === "DRAFT" || record.status === "REJECTED") && (
+                      {(isAdmin || record.status !== "APPROVED") && (
                         <div className="my-record-actions">
-                          <Link href={`/my-records/${record.id}/edit`} className="btn btn-outline">
-                            แก้ไขข้อมูล
-                          </Link>
+                          {(isAdmin || record.status === "DRAFT" || record.status === "REJECTED") && (
+                            <Link href={`/my-records/${record.id}/edit`} className="btn btn-outline">
+                              แก้ไขข้อมูล
+                            </Link>
+                          )}
                           {record.status === "DRAFT" && <ResubmitRecordButton id={record.id} />}
+                          {(isAdmin || record.status !== "APPROVED") && (
+                            <DeleteAntRecordButton id={record.id} returnTo="/my-records" />
+                          )}
                         </div>
                       )}
                     </div>
@@ -164,21 +177,7 @@ async function MyRecordsContent({
                 ))}
               </div>
 
-              {totalPages > 1 && (
-                <nav className="my-records-pagination" aria-label="เปลี่ยนหน้ารายการ">
-                  {page > 1 ? (
-                    <Link href={`/my-records?page=${page - 1}`} className="btn btn-outline">
-                      หน้าก่อน
-                    </Link>
-                  ) : <span />}
-                  <span>หน้า {page} / {totalPages}</span>
-                  {page < totalPages ? (
-                    <Link href={`/my-records?page=${page + 1}`} className="btn btn-outline">
-                      หน้าถัดไป
-                    </Link>
-                  ) : <span />}
-                </nav>
-              )}
+              <Pagination page={page} totalPages={totalPages} totalItems={total} pageSize={PAGE_SIZE} hrefForPage={pageHref} label="เปลี่ยนหน้ารายการของฉัน" />
             </>
           ) : (
             <div className="my-records-empty">

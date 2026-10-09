@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { auth, signOut } from "@/auth";
-import NavLinks from "./nav-links";
+import NavbarMenu from "./navbar-menu";
 
 function initials(name?: string | null) {
   const parts = (name ?? "").trim().split(/\s+/).filter(Boolean);
@@ -32,9 +32,7 @@ export default async function Navbar() {
           Ant Database
         </Link>
 
-        <NavLinks items={items} />
-
-        <div className="nav-actions">
+        <NavbarMenu items={items}>
           {user ? (
             <>
               <Link href="/records/new" className="btn btn-secondary">
@@ -67,7 +65,7 @@ export default async function Navbar() {
               </Link>
             </>
           )}
-        </div>
+        </NavbarMenu>
       </div>
     </header>
   );

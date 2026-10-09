@@ -5,7 +5,13 @@ import { usePathname } from "next/navigation";
 
 type NavItem = { href: string; label: string };
 
-export default function NavLinks({ items }: { items: NavItem[] }) {
+export default function NavLinks({
+  items,
+  onNavigate,
+}: {
+  items: NavItem[];
+  onNavigate?: () => void;
+}) {
   const pathname = usePathname();
   const activeHref = items
     .filter((item) =>
@@ -25,6 +31,7 @@ export default function NavLinks({ items }: { items: NavItem[] }) {
             href={item.href}
             className="nav-link"
             aria-current={active ? "page" : undefined}
+            onClick={onNavigate}
           >
             {item.label}
           </Link>

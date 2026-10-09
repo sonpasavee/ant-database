@@ -6,16 +6,14 @@ export type ObservationCardRecord = {
   id: string;
   amount: number;
   collectedAt: Date;
-  locationText: string | null;
   species: { commonName: string; scientificName: string } | null;
   location: { name: string; province: string | null } | null;
   collectionMethod: { name: string } | null;
-  collectionMethodOther: string | null;
   images: { url: string }[];
 };
 
 export default function ObservationCard({ record }: { record: ObservationCardRecord }) {
-  const location = [record.location?.name ?? record.locationText, record.location?.province]
+  const location = [record.location?.name, record.location?.province]
     .filter(Boolean)
     .join(", ");
   const collectedDate = new Intl.DateTimeFormat("th-TH", {
@@ -44,7 +42,7 @@ export default function ObservationCard({ record }: { record: ObservationCardRec
         {record.species && <p className="sci">{record.species.scientificName}</p>}
         <p className="record-place">{location || "ไม่ระบุสถานที่"}</p>
         <p className="record-meta">
-          เก็บเมื่อ {collectedDate} · {record.collectionMethod?.name ?? record.collectionMethodOther ?? "ไม่ระบุวิธีเก็บ"}
+          เก็บเมื่อ {collectedDate} · {record.collectionMethod?.name ?? "ไม่ระบุวิธีเก็บ"}
         </p>
       </div>
     </Link>

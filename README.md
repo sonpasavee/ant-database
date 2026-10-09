@@ -58,6 +58,10 @@ npx prisma db push
 
 `db push` จะปรับ schema ของฐานข้อมูลที่ระบุใน `DATABASE_URL` โดยตรง ก่อนใช้กับฐานข้อมูลที่มีข้อมูลอยู่แล้ว ให้สำรองข้อมูลและตรวจข้อความเตือนทุกครั้ง ห้ามใช้ `--force-reset` หรือ `--accept-data-loss` โดยไม่เข้าใจผลกระทบ
 
+## Cloudinary cleanup worker
+
+Record image deletion is queued in PostgreSQL and retried with exponential backoff. Apply the Prisma migrations before deploying this worker, configure a long random `CRON_SECRET` in the app environment, and schedule a trusted system to send `POST /api/cron/cloudinary-cleanup` with `Authorization: Bearer <CRON_SECRET>` at least once per minute. The endpoint processes a bounded batch and is safe to invoke concurrently. Do not expose the secret in browser code or public URLs.
+
 เริ่มเซิร์ฟเวอร์สำหรับพัฒนา:
 
 ```bash
