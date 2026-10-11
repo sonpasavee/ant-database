@@ -6,11 +6,24 @@ import Google from "next-auth/providers/google";
 
 import { prisma } from "@/lib/prisma";
 
+const SESSION_MAX_AGE_SECONDS = 30 * 60;
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
-  session: { strategy: "jwt" },
+  session: {
+    strategy: "jwt",
+    maxAge: SESSION_MAX_AGE_SECONDS,
+  },
   callbacks: {
     async jwt({ token, user }) {
+      // Enforce a fixed 30-minute lifetime even if a session check renews the cookie.
+      if (
+        typeof token.iat === "number" &&
+        Date.now() >= (token.iat + SESSION_MAX_AGE_SECONDS) * 1000
+      ) {
+        return null;
+      }
+
       if (user?.id) {
         const databaseUser = await prisma.user.findUnique({
           where: { id: user.id },
