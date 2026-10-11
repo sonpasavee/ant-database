@@ -97,6 +97,7 @@ export default async function HomePage() {
               </p>
 
               <form className="search-box" action="/records" method="get" role="search">
+                <input type="hidden" name="view" value="records" />
                 <svg
                   width="18"
                   height="18"
@@ -127,7 +128,7 @@ export default async function HomePage() {
                   <Link
                     key={q}
                     className="quick-chip"
-                    href={`/records?q=${encodeURIComponent(q)}`}
+                    href={`/records?view=records&q=${encodeURIComponent(q)}`}
                   >
                     {q}
                   </Link>
