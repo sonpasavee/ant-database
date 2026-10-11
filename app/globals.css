@@ -184,6 +184,14 @@ a {
   color: var(--gold);
 }
 
+.brand-mark {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 5px rgb(0 0 0 / 20%));
+}
+
 .navbar-panel {
   display: flex;
   align-items: center;

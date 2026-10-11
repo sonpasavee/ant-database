@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { auth, signOut } from "@/auth";
+import Brand from "./brand";
 import NavbarMenu from "./navbar-menu";
 
 function initials(name?: string | null) {
@@ -28,9 +29,7 @@ export default async function Navbar() {
   return (
     <header className="navbar">
       <div className="container navbar-inner">
-        <Link href="/" className="brand">
-          Ant Database
-        </Link>
+        <Brand />
 
         <NavbarMenu items={items}>
           {user ? (

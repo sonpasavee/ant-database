@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Brand from "../components/brand";
 
 export default function AuthLayout({
   children,
@@ -7,9 +8,7 @@ export default function AuthLayout({
     <>
       <header className="auth-bar">
         <div className="container navbar-inner">
-          <Link href="/" className="brand">
-            Ant Database
-          </Link>
+          <Brand />
           <Link href="/" className="back-link">
             ← กลับหน้าแรก
           </Link>
